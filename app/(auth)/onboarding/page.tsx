@@ -22,16 +22,20 @@ type TemplateRow = {
   cadence_days: number[];
 };
 
+const studyTypeOptions = ["Concurso", "Faculdade"] as const;
+const bestTimeOptions = ["Manhã", "Tarde", "Noite"] as const;
+
+type StudyType = (typeof studyTypeOptions)[number];
+type BestTime = (typeof bestTimeOptions)[number];
+
 export default function OnboardingPage() {
   const router = useRouter();
   const supabase = createClient();
   const [step, setStep] = useState(1);
   const [name, setName] = useState("");
   const [objective, setObjective] = useState("Concurso da área fiscal");
-  const [studyType, setStudyType] = useState<"Concurso" | "Faculdade">(
-    "Concurso"
-  );
-  const [bestTime, setBestTime] = useState("Noite");
+  const [studyType, setStudyType] = useState<StudyType>("Concurso");
+  const [bestTime, setBestTime] = useState<BestTime>("Noite");
   const [availableSubjects, setAvailableSubjects] = useState<string[]>([]);
   const [selectedSubjects, setSelectedSubjects] = useState<string[]>([]);
   const [customSubject, setCustomSubject] = useState("");
@@ -285,11 +289,14 @@ export default function OnboardingPage() {
               className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-sm text-[#1f1c18]"
               value={studyType}
               onChange={(event) =>
-                setStudyType(event.target.value as "Concurso" | "Faculdade")
+                setStudyType(event.target.value as StudyType)
               }
             >
-              <option value="Concurso">Concurso público</option>
-              <option value="Faculdade">Faculdade</option>
+              {studyTypeOptions.map((option) => (
+                <option key={option} value={option}>
+                  {option === "Concurso" ? "Concurso público" : option}
+                </option>
+              ))}
             </select>
           </div>
           <div>
@@ -299,11 +306,15 @@ export default function OnboardingPage() {
             <select
               className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-sm text-[#1f1c18]"
               value={bestTime}
-              onChange={(event) => setBestTime(event.target.value)}
+              onChange={(event) =>
+                setBestTime(event.target.value as BestTime)
+              }
             >
-              <option>Manhã</option>
-              <option>Tarde</option>
-              <option>Noite</option>
+              {bestTimeOptions.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
             </select>
           </div>
         </div>

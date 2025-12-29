@@ -55,31 +55,185 @@ type TemplateRow = {
   owner_user_id: string | null;
 };
 
+const prefModeOptions = ["Não definido", "Claro", "Escuro"] as const;
+const prefLanguageOptions = [
+  "Não definido",
+  "Português (BR)",
+  "English (US)",
+] as const;
+const prefDateFormatOptions = [
+  "Não definido",
+  "DD/MM/AAAA",
+  "MM/DD/AAAA",
+  "AAAA-MM-DD",
+] as const;
+const notifyWeeklyDayOptions = [
+  "Segunda",
+  "Quarta",
+  "Sexta",
+  "Domingo",
+] as const;
+const notifyPriorityOptions = ["Baixo", "Médio", "Alto"] as const;
+const materiaFilterOptions = ["Todas", "Ativas", "Inativas"] as const;
+
+type AccountType = "Concurso" | "Faculdade";
+type PrefMode = (typeof prefModeOptions)[number];
+type PrefLanguage = (typeof prefLanguageOptions)[number];
+type PrefDateFormat = (typeof prefDateFormatOptions)[number];
+type NotifyWeeklyDay = (typeof notifyWeeklyDayOptions)[number];
+type NotifyPriority = (typeof notifyPriorityOptions)[number];
+type MateriaFilter = (typeof materiaFilterOptions)[number];
+
+const isPrefMode = (value?: string | null): value is PrefMode =>
+  Boolean(value && prefModeOptions.includes(value as PrefMode));
+const isPrefLanguage = (value?: string | null): value is PrefLanguage =>
+  Boolean(value && prefLanguageOptions.includes(value as PrefLanguage));
+const isPrefDateFormat = (value?: string | null): value is PrefDateFormat =>
+  Boolean(value && prefDateFormatOptions.includes(value as PrefDateFormat));
+const isNotifyWeeklyDay = (value?: string | null): value is NotifyWeeklyDay =>
+  Boolean(value && notifyWeeklyDayOptions.includes(value as NotifyWeeklyDay));
+const isNotifyPriority = (value?: string | null): value is NotifyPriority =>
+  Boolean(value && notifyPriorityOptions.includes(value as NotifyPriority));
+
 export default function Configuracoes() {
   const supabase = useMemo(() => createClient(), []);
   const [profileLoaded, setProfileLoaded] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState("—");
-  const [activeTab, setActiveTab] = useState<
-    | "conta"
-    | "materias"
-    | "templates"
-    | "seguranca"
-    | "notificacoes"
-    | "privacidade"
-    | "planos"
-  >("conta");
+  const tabs = [
+    {
+      label: "Conta",
+      value: "conta",
+      icon: (
+        <svg
+          aria-hidden="true"
+          className="h-4 w-4"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.7"
+        >
+          <path d="M20 21a8 8 0 0 0-16 0" strokeLinecap="round" />
+          <circle cx="12" cy="8" r="4" />
+        </svg>
+      ),
+    },
+    {
+      label: "Matérias",
+      value: "materias",
+      icon: (
+        <svg
+          aria-hidden="true"
+          className="h-4 w-4"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.7"
+        >
+          <path d="M4 6h12a3 3 0 0 1 3 3v9H7a3 3 0 0 1-3-3z" />
+          <path d="M7 6v12" strokeLinecap="round" />
+        </svg>
+      ),
+    },
+    {
+      label: "Templates",
+      value: "templates",
+      icon: (
+        <svg
+          aria-hidden="true"
+          className="h-4 w-4"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.7"
+        >
+          <path d="M8 6h10v10H8z" />
+          <path d="M6 8H4v10h10v-2" strokeLinecap="round" />
+        </svg>
+      ),
+    },
+    {
+      label: "Segurança",
+      value: "seguranca",
+      icon: (
+        <svg
+          aria-hidden="true"
+          className="h-4 w-4"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.7"
+        >
+          <path d="M12 3l8 4v5c0 5-3.5 7.5-8 9-4.5-1.5-8-4-8-9V7l8-4z" />
+        </svg>
+      ),
+    },
+    {
+      label: "Notificações",
+      value: "notificacoes",
+      icon: (
+        <svg
+          aria-hidden="true"
+          className="h-4 w-4"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.7"
+        >
+          <path d="M18 8a6 6 0 1 0-12 0c0 7-3 7-3 7h18s-3 0-3-7" />
+          <path d="M9 19a3 3 0 0 0 6 0" strokeLinecap="round" />
+        </svg>
+      ),
+    },
+    {
+      label: "Privacidade",
+      value: "privacidade",
+      icon: (
+        <svg
+          aria-hidden="true"
+          className="h-4 w-4"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.7"
+        >
+          <path d="M12 3l8 4v5c0 5-3.5 7.5-8 9-4.5-1.5-8-4-8-9V7l8-4z" />
+        </svg>
+      ),
+    },
+    {
+      label: "Planos",
+      value: "planos",
+      icon: (
+        <svg
+          aria-hidden="true"
+          className="h-4 w-4"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.7"
+        >
+          <path d="M4 7h16v10H4z" />
+          <path d="M7 10h6M7 14h10" strokeLinecap="round" />
+        </svg>
+      ),
+    },
+  ] as const;
+
+  type TabValue = (typeof tabs)[number]["value"];
+
+  const [activeTab, setActiveTab] = useState<TabValue>("conta");
   const [editingProfile, setEditingProfile] = useState(false);
   const [profileName, setProfileName] = useState("");
   const [profileAvatar, setProfileAvatar] = useState("PM");
   const [editingAccountType, setEditingAccountType] = useState(false);
-  const [accountType, setAccountType] = useState<"Concurso" | "Faculdade">(
-    "Concurso"
-  );
+  const [accountType, setAccountType] = useState<AccountType>("Concurso");
   const [editingPreferences, setEditingPreferences] = useState(false);
-  const [prefMode, setPrefMode] = useState("Não definido");
-  const [prefLanguage, setPrefLanguage] = useState("Não definido");
-  const [prefDateFormat, setPrefDateFormat] = useState("Não definido");
+  const [prefMode, setPrefMode] = useState<PrefMode>("Não definido");
+  const [prefLanguage, setPrefLanguage] =
+    useState<PrefLanguage>("Não definido");
+  const [prefDateFormat, setPrefDateFormat] =
+    useState<PrefDateFormat>("Não definido");
   const [editingSecurity, setEditingSecurity] = useState(false);
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -89,15 +243,18 @@ export default function Configuracoes() {
   const [notifyDaily, setNotifyDaily] = useState(true);
   const [notifyDailyTime, setNotifyDailyTime] = useState("19:00");
   const [notifyWeekly, setNotifyWeekly] = useState(true);
-  const [notifyWeeklyDay, setNotifyWeeklyDay] = useState("Segunda");
+  const [notifyWeeklyDay, setNotifyWeeklyDay] =
+    useState<NotifyWeeklyDay>("Segunda");
   const [notifyWeeklyTime, setNotifyWeeklyTime] = useState("08:00");
   const [notifyOverdueTop, setNotifyOverdueTop] = useState(true);
-  const [notifyPriority, setNotifyPriority] = useState("Alto");
+  const [notifyPriority, setNotifyPriority] =
+    useState<NotifyPriority>("Alto");
   const [editingPrivacy, setEditingPrivacy] = useState(false);
   const [confirmExport, setConfirmExport] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [materiaSearch, setMateriaSearch] = useState("");
-  const [materiaFilter, setMateriaFilter] = useState("Todas");
+  const [materiaFilter, setMateriaFilter] =
+    useState<MateriaFilter>("Todas");
   const [showMateriaModal, setShowMateriaModal] = useState(false);
   const [novaMateria, setNovaMateria] = useState("");
   const [subjects, setSubjects] = useState<SubjectItem[]>([]);
@@ -178,13 +335,13 @@ export default function Configuracoes() {
       if (typedProfile?.active_template_id) {
         setActiveTemplateId(typedProfile.active_template_id);
       }
-      if (typedProfile?.theme) {
+      if (isPrefMode(typedProfile?.theme)) {
         setPrefMode(typedProfile.theme);
       }
-      if (typedProfile?.language) {
+      if (isPrefLanguage(typedProfile?.language)) {
         setPrefLanguage(typedProfile.language);
       }
-      if (typedProfile?.date_format) {
+      if (isPrefDateFormat(typedProfile?.date_format)) {
         setPrefDateFormat(typedProfile.date_format);
       }
       if (typedProfile && typedProfile.notify_email !== null) {
@@ -202,7 +359,7 @@ export default function Configuracoes() {
       if (typedProfile && typedProfile.notify_weekly !== null) {
         setNotifyWeekly(Boolean(typedProfile.notify_weekly));
       }
-      if (typedProfile && typedProfile.notify_weekly_day) {
+      if (isNotifyWeeklyDay(typedProfile?.notify_weekly_day)) {
         setNotifyWeeklyDay(typedProfile.notify_weekly_day);
       }
       if (typedProfile && typedProfile.notify_weekly_time) {
@@ -211,7 +368,7 @@ export default function Configuracoes() {
       if (typedProfile && typedProfile.notify_overdue_top !== null) {
         setNotifyOverdueTop(Boolean(typedProfile.notify_overdue_top));
       }
-      if (typedProfile && typedProfile.notify_priority) {
+      if (isNotifyPriority(typedProfile?.notify_priority)) {
         setNotifyPriority(typedProfile.notify_priority);
       }
 
@@ -220,21 +377,23 @@ export default function Configuracoes() {
         .select("subject:subjects(id,name,study_type,is_default)")
         .eq("user_id", user?.id ?? "");
 
-      const mappedSubjects =
-        (subjectLinks as SubjectLinkRow[] | null)
-          ?.map((item: SubjectLinkRow) => item.subject)
-          .filter(
-            (
-              subject
-            ): subject is NonNullable<SubjectLinkRow["subject"]> =>
-              Boolean(subject)
-          )
-          .map((subject) => ({
-            id: subject.id,
-            label: subject.name,
-            type: subject.study_type,
-            isDefault: subject.is_default,
-          })) ?? [];
+      const subjectItems = (subjectLinks as SubjectLinkRow[] | null) ?? [];
+      const subjectEntries = subjectItems
+        .map((item: SubjectLinkRow) => item.subject)
+        .filter(
+          (
+            subject
+          ): subject is NonNullable<SubjectLinkRow["subject"]> =>
+            Boolean(subject)
+        );
+      const mappedSubjects = subjectEntries.map(
+        (subject: NonNullable<SubjectLinkRow["subject"]>) => ({
+          id: subject.id,
+          label: subject.name,
+          type: subject.study_type,
+          isDefault: subject.is_default,
+        })
+      );
 
       setSubjects(mappedSubjects);
 
@@ -341,125 +500,7 @@ export default function Configuracoes() {
       </header>
 
       <nav className="flex flex-wrap items-center gap-2 rounded-lg border border-[#e6dbc9] bg-[#fffdf9] px-4 py-3 text-sm font-semibold text-[#4b4337]">
-        {[
-          {
-            label: "Conta",
-            value: "conta",
-            icon: (
-              <svg
-                aria-hidden="true"
-                className="h-4 w-4"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.7"
-              >
-                <path d="M20 21a8 8 0 0 0-16 0" strokeLinecap="round" />
-                <circle cx="12" cy="8" r="4" />
-              </svg>
-            ),
-          },
-          {
-            label: "Matérias",
-            value: "materias",
-            icon: (
-              <svg
-                aria-hidden="true"
-                className="h-4 w-4"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.7"
-              >
-                <path d="M4 6h12a3 3 0 0 1 3 3v9H7a3 3 0 0 1-3-3z" />
-                <path d="M7 6v12" strokeLinecap="round" />
-              </svg>
-            ),
-          },
-          {
-            label: "Templates",
-            value: "templates",
-            icon: (
-              <svg
-                aria-hidden="true"
-                className="h-4 w-4"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.7"
-              >
-                <path d="M8 6h10v10H8z" />
-                <path d="M6 8H4v10h10v-2" strokeLinecap="round" />
-              </svg>
-            ),
-          },
-          {
-            label: "Segurança",
-            value: "seguranca",
-            icon: (
-              <svg
-                aria-hidden="true"
-                className="h-4 w-4"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.7"
-              >
-                <path d="M12 3l8 4v5c0 5-3.5 7.5-8 9-4.5-1.5-8-4-8-9V7l8-4z" />
-              </svg>
-            ),
-          },
-          {
-            label: "Notificações",
-            value: "notificacoes",
-            icon: (
-              <svg
-                aria-hidden="true"
-                className="h-4 w-4"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.7"
-              >
-                <path d="M18 8a6 6 0 1 0-12 0c0 7-3 7-3 7h18s-3 0-3-7" />
-                <path d="M9 19a3 3 0 0 0 6 0" strokeLinecap="round" />
-              </svg>
-            ),
-          },
-          {
-            label: "Privacidade",
-            value: "privacidade",
-            icon: (
-              <svg
-                aria-hidden="true"
-                className="h-4 w-4"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.7"
-              >
-                <path d="M12 3l8 4v5c0 5-3.5 7.5-8 9-4.5-1.5-8-4-8-9V7l8-4z" />
-              </svg>
-            ),
-          },
-          {
-            label: "Planos",
-            value: "planos",
-            icon: (
-              <svg
-                aria-hidden="true"
-                className="h-4 w-4"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.7"
-              >
-                <path d="M4 7h16v10H4z" />
-                <path d="M7 10h6M7 14h10" strokeLinecap="round" />
-              </svg>
-            ),
-          },
-        ].map((item) => (
+        {tabs.map((item) => (
           <button
             key={item.value}
             type="button"
@@ -575,7 +616,9 @@ export default function Configuracoes() {
                   className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-sm text-[#1f1c18] disabled:bg-[#fdf8f1] disabled:text-[#6b6357]"
                   disabled={!editingAccountType}
                   value={accountType}
-                  onChange={(event) => setAccountType(event.target.value)}
+                  onChange={(event) =>
+                    setAccountType(event.target.value as AccountType)
+                  }
                 >
                   <option>Concurso</option>
                   <option>Faculdade</option>
@@ -616,11 +659,15 @@ export default function Configuracoes() {
                   className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-sm text-[#1f1c18] disabled:bg-[#fdf8f1] disabled:text-[#6b6357]"
                   disabled={!editingPreferences}
                   value={prefMode}
-                  onChange={(event) => setPrefMode(event.target.value)}
+                  onChange={(event) =>
+                    setPrefMode(event.target.value as PrefMode)
+                  }
                 >
-                  <option>Não definido</option>
-                  <option>Claro</option>
-                  <option>Escuro</option>
+                    {prefModeOptions.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
                 </select>
                 </div>
                 <div className="w-full max-w-sm">
@@ -631,11 +678,15 @@ export default function Configuracoes() {
                   className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-sm text-[#1f1c18] disabled:bg-[#fdf8f1] disabled:text-[#6b6357]"
                   disabled={!editingPreferences}
                   value={prefLanguage}
-                  onChange={(event) => setPrefLanguage(event.target.value)}
+                  onChange={(event) =>
+                    setPrefLanguage(event.target.value as PrefLanguage)
+                  }
                 >
-                  <option>Não definido</option>
-                  <option>Português (BR)</option>
-                  <option>English (US)</option>
+                    {prefLanguageOptions.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
                 </select>
                 </div>
                 <div className="w-full max-w-sm">
@@ -646,12 +697,15 @@ export default function Configuracoes() {
                   className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-sm text-[#1f1c18] disabled:bg-[#fdf8f1] disabled:text-[#6b6357]"
                   disabled={!editingPreferences}
                   value={prefDateFormat}
-                  onChange={(event) => setPrefDateFormat(event.target.value)}
+                  onChange={(event) =>
+                    setPrefDateFormat(event.target.value as PrefDateFormat)
+                  }
                 >
-                  <option>Não definido</option>
-                  <option>DD/MM/AAAA</option>
-                  <option>MM/DD/AAAA</option>
-                  <option>AAAA-MM-DD</option>
+                    {prefDateFormatOptions.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
                 </select>
                 </div>
               </div>
@@ -716,11 +770,15 @@ export default function Configuracoes() {
                 <select
                   className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-sm text-[#1f1c18]"
                   value={materiaFilter}
-                  onChange={(event) => setMateriaFilter(event.target.value)}
+                  onChange={(event) =>
+                    setMateriaFilter(event.target.value as MateriaFilter)
+                  }
                 >
-                  <option>Todas</option>
-                  <option>Ativas</option>
-                  <option>Inativas</option>
+                  {materiaFilterOptions.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>
@@ -1012,12 +1070,15 @@ export default function Configuracoes() {
                     className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-sm text-[#1f1c18] disabled:bg-[#fdf8f1] disabled:text-[#6b6357]"
                     disabled={!editingNotifications}
                     value={notifyWeeklyDay}
-                    onChange={(event) => setNotifyWeeklyDay(event.target.value)}
+                    onChange={(event) =>
+                      setNotifyWeeklyDay(event.target.value as NotifyWeeklyDay)
+                    }
                   >
-                    <option>Segunda</option>
-                    <option>Quarta</option>
-                    <option>Sexta</option>
-                    <option>Domingo</option>
+                    {notifyWeeklyDayOptions.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <div className="w-full max-w-sm">
@@ -1076,11 +1137,15 @@ export default function Configuracoes() {
                     className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-sm text-[#1f1c18] disabled:bg-[#fdf8f1] disabled:text-[#6b6357]"
                     disabled={!editingNotifications}
                     value={notifyPriority}
-                    onChange={(event) => setNotifyPriority(event.target.value)}
+                    onChange={(event) =>
+                      setNotifyPriority(event.target.value as NotifyPriority)
+                    }
                   >
-                    <option>Baixo</option>
-                    <option>Médio</option>
-                    <option>Alto</option>
+                    {notifyPriorityOptions.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>
@@ -1612,16 +1677,19 @@ export default function Configuracoes() {
                       .single();
 
                     if (updated) {
+                      const cadenceDays = (updated.cadence_days ??
+                        []) as number[];
+                      const cadenceLabel = cadenceDays
+                        .map((day) => `${day}d`)
+                        .join(", ");
                       setTemplates((prev) =>
                         prev.map((item) =>
                           item.id === updated.id
                             ? {
                                 ...item,
                                 title: updated.name,
-                                cadence: updated.cadence_days
-                                  .map((day) => `${day}d`)
-                                  .join(", "),
-                                steps: updated.cadence_days,
+                                cadence: cadenceLabel,
+                                steps: cadenceDays,
                                 source: updated.is_default
                                   ? "Padrão"
                                   : "Personalizado",
@@ -1647,17 +1715,20 @@ export default function Configuracoes() {
                       .single();
 
                     if (created) {
+                      const createdCadence = (created.cadence_days ??
+                        []) as number[];
+                      const createdLabel = createdCadence
+                        .map((day: number) => `${day}d`)
+                        .join(", ");
                       setTemplates((prev) => [
                         ...prev,
                         {
                           id: created.id,
                           title: created.name,
-                          cadence: created.cadence_days
-                            .map((day) => `${day}d`)
-                            .join(", "),
+                          cadence: createdLabel,
                           detail: "Template personalizado.",
                           source: "Personalizado",
-                          steps: created.cadence_days,
+                          steps: createdCadence,
                         },
                       ]);
                     }
