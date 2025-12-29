@@ -8,6 +8,8 @@ type TemplateItem = {
   owner_user_id: string | null;
 };
 
+type TemplateRow = TemplateItem;
+
 const detailByName: Record<string, string> = {
   Essencial: "Base ideal para quem estuda todo dia.",
   Intensivo: "Ritmo acelerado para provas próximas.",
@@ -35,7 +37,7 @@ export default async function Templates() {
     .eq("study_type", profile?.study_type ?? "Concurso")
     .order("created_at", { ascending: true });
 
-  const templates = (templatesData ?? []) as TemplateItem[];
+  const templates = (templatesData as TemplateRow[] | null) ?? [];
 
   return (
     <div className="space-y-6">

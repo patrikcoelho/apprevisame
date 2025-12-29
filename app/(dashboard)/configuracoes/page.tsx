@@ -19,6 +19,42 @@ type TemplateItem = {
   steps: number[];
 };
 
+type ProfileRow = {
+  full_name?: string | null;
+  study_type?: "Concurso" | "Faculdade" | null;
+  plan?: string | null;
+  active_template_id?: string | null;
+  theme?: string | null;
+  language?: string | null;
+  date_format?: string | null;
+  notify_email?: boolean | null;
+  notify_app?: boolean | null;
+  notify_daily?: boolean | null;
+  notify_daily_time?: string | null;
+  notify_weekly?: boolean | null;
+  notify_weekly_day?: string | null;
+  notify_weekly_time?: string | null;
+  notify_overdue_top?: boolean | null;
+  notify_priority?: string | null;
+};
+
+type SubjectLinkRow = {
+  subject: {
+    id: string;
+    name: string;
+    study_type: "Concurso" | "Faculdade";
+    is_default: boolean;
+  } | null;
+};
+
+type TemplateRow = {
+  id: string;
+  name: string;
+  cadence_days: number[];
+  is_default: boolean;
+  owner_user_id: string | null;
+};
+
 export default function Configuracoes() {
   const supabase = useMemo(() => createClient(), []);
   const [profileLoaded, setProfileLoaded] = useState(false);
@@ -118,12 +154,14 @@ export default function Configuracoes() {
         .eq("id", user?.id ?? "")
         .maybeSingle();
 
-      if (profile?.full_name) {
-        setProfileName(profile.full_name);
+      const typedProfile = profile as ProfileRow | null;
+
+      if (typedProfile?.full_name) {
+        setProfileName(typedProfile.full_name);
         setProfileAvatar(
-          profile.full_name
+          typedProfile.full_name
             .split(" ")
-            .map((part) => part[0])
+            .map((part: string) => part[0])
             .slice(0, 2)
             .join("")
             .toUpperCase()
@@ -131,50 +169,50 @@ export default function Configuracoes() {
       } else {
         setProfileAvatar("—");
       }
-      if (profile?.study_type) {
-        setAccountType(profile.study_type);
+      if (typedProfile?.study_type) {
+        setAccountType(typedProfile.study_type);
       }
-      if (profile?.plan) {
-        setActivePlan(profile.plan === "Premium" ? "Premium" : "Gratuito");
+      if (typedProfile?.plan) {
+        setActivePlan(typedProfile.plan === "Premium" ? "Premium" : "Gratuito");
       }
-      if (profile?.active_template_id) {
-        setActiveTemplateId(profile.active_template_id);
+      if (typedProfile?.active_template_id) {
+        setActiveTemplateId(typedProfile.active_template_id);
       }
-      if (profile?.theme) {
-        setPrefMode(profile.theme);
+      if (typedProfile?.theme) {
+        setPrefMode(typedProfile.theme);
       }
-      if (profile?.language) {
-        setPrefLanguage(profile.language);
+      if (typedProfile?.language) {
+        setPrefLanguage(typedProfile.language);
       }
-      if (profile?.date_format) {
-        setPrefDateFormat(profile.date_format);
+      if (typedProfile?.date_format) {
+        setPrefDateFormat(typedProfile.date_format);
       }
-      if (profile?.notify_email !== null) {
-        setNotifyEmail(Boolean(profile.notify_email));
+      if (typedProfile?.notify_email !== null) {
+        setNotifyEmail(Boolean(typedProfile.notify_email));
       }
-      if (profile?.notify_app !== null) {
-        setNotifyApp(Boolean(profile.notify_app));
+      if (typedProfile?.notify_app !== null) {
+        setNotifyApp(Boolean(typedProfile.notify_app));
       }
-      if (profile?.notify_daily !== null) {
-        setNotifyDaily(Boolean(profile.notify_daily));
+      if (typedProfile?.notify_daily !== null) {
+        setNotifyDaily(Boolean(typedProfile.notify_daily));
       }
-      if (profile?.notify_daily_time) {
-        setNotifyDailyTime(profile.notify_daily_time);
+      if (typedProfile?.notify_daily_time) {
+        setNotifyDailyTime(typedProfile.notify_daily_time);
       }
-      if (profile?.notify_weekly !== null) {
-        setNotifyWeekly(Boolean(profile.notify_weekly));
+      if (typedProfile?.notify_weekly !== null) {
+        setNotifyWeekly(Boolean(typedProfile.notify_weekly));
       }
-      if (profile?.notify_weekly_day) {
-        setNotifyWeeklyDay(profile.notify_weekly_day);
+      if (typedProfile?.notify_weekly_day) {
+        setNotifyWeeklyDay(typedProfile.notify_weekly_day);
       }
-      if (profile?.notify_weekly_time) {
-        setNotifyWeeklyTime(profile.notify_weekly_time);
+      if (typedProfile?.notify_weekly_time) {
+        setNotifyWeeklyTime(typedProfile.notify_weekly_time);
       }
-      if (profile?.notify_overdue_top !== null) {
-        setNotifyOverdueTop(Boolean(profile.notify_overdue_top));
+      if (typedProfile?.notify_overdue_top !== null) {
+        setNotifyOverdueTop(Boolean(typedProfile.notify_overdue_top));
       }
-      if (profile?.notify_priority) {
-        setNotifyPriority(profile.notify_priority);
+      if (typedProfile?.notify_priority) {
+        setNotifyPriority(typedProfile.notify_priority);
       }
 
       const { data: subjectLinks } = await supabase
@@ -183,14 +221,16 @@ export default function Configuracoes() {
         .eq("user_id", user?.id ?? "");
 
       const mappedSubjects =
-        subjectLinks
-          ?.map((item) => item.subject)
-          .filter(Boolean)
+        (subjectLinks as SubjectLinkRow[] | null)
+          ?.map((item: SubjectLinkRow) => item.subject)
+          .filter(
+            (subject): subject is SubjectLinkRow["subject"] => Boolean(subject)
+          )
           .map((subject) => ({
-            id: subject!.id,
-            label: subject!.name,
-            type: subject!.study_type,
-            isDefault: subject!.is_default,
+            id: subject.id,
+            label: subject.name,
+            type: subject.study_type,
+            isDefault: subject.is_default,
           })) ?? [];
 
       setSubjects(mappedSubjects);
@@ -202,10 +242,10 @@ export default function Configuracoes() {
         .order("created_at", { ascending: true });
 
       const mappedTemplates =
-        templatesData?.map((item) => ({
+        (templatesData as TemplateRow[] | null)?.map((item) => ({
           id: item.id,
           title: item.name,
-          cadence: item.cadence_days.map((day) => `${day}d`).join(", "),
+          cadence: item.cadence_days.map((day: number) => `${day}d`).join(", "),
           detail: item.is_default
             ? "Template predefinido do sistema."
             : "Template personalizado.",

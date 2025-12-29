@@ -11,6 +11,16 @@ type TemplateItem = {
   desc: string;
 };
 
+type SubjectRow = {
+  name: string;
+};
+
+type TemplateRow = {
+  id: string;
+  name: string;
+  cadence_days: number[];
+};
+
 export default function OnboardingPage() {
   const router = useRouter();
   const supabase = createClient();
@@ -76,7 +86,9 @@ export default function OnboardingPage() {
         .order("name", { ascending: true });
 
       const subjectNames =
-        subjectsData?.map((item) => item.name).filter(Boolean) ?? [];
+        (subjectsData as SubjectRow[] | null)
+          ?.map((item: SubjectRow) => item.name)
+          .filter(Boolean) ?? [];
       setAvailableSubjects(subjectNames);
       if (subjectNames.length > 0) {
         setSelectedSubjects(subjectNames.slice(0, 2));
@@ -90,7 +102,7 @@ export default function OnboardingPage() {
         .order("created_at", { ascending: true });
 
       const mappedTemplates =
-        templatesData?.map((item) => ({
+        (templatesData as TemplateRow[] | null)?.map((item: TemplateRow) => ({
           id: item.id,
           title: item.name,
           cadence: item.cadence_days.map((day: number) => `${day}d`).join(", "),
@@ -160,7 +172,10 @@ export default function OnboardingPage() {
       .eq("study_type", studyType);
 
     const subjectMap = new Map(
-      (subjectsData ?? []).map((subject) => [subject.name, subject])
+      ((subjectsData as SubjectRow[] | null) ?? []).map((subject: SubjectRow) => [
+        subject.name,
+        subject,
+      ])
     );
 
     const selected = Array.from(new Set(selectedSubjects));

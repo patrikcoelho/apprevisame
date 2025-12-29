@@ -75,7 +75,7 @@ export default function Adicionar() {
 
       const mapped =
         (linkedSubjects as LinkedSubject[] | null)
-          ?.map((item) => item.subject)
+          ?.map((item: LinkedSubject) => item.subject)
           .filter((subject): subject is { id: string; name: string } =>
             Boolean(subject)
           )

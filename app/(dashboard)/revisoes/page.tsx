@@ -24,6 +24,15 @@ type DayReview = {
   topic: string;
 };
 
+type ReviewRow = {
+  id: string;
+  due_at: string;
+  study?: {
+    topic?: string | null;
+    subject?: { name?: string | null } | null;
+  } | null;
+};
+
 const toKey = (date: Date) =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(
     date.getDate()
@@ -54,7 +63,7 @@ export default function Revisoes() {
         .lte("due_at", end.toISOString());
 
       const map: Record<string, DayReview[]> = {};
-      (data ?? []).forEach((review) => {
+      (data as ReviewRow[] | null ?? []).forEach((review: ReviewRow) => {
         const key = review.due_at
           ? toKey(new Date(review.due_at))
           : toKey(start);

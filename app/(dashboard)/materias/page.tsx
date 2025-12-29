@@ -6,6 +6,10 @@ type SubjectItem = {
   study_type: "Concurso" | "Faculdade";
 };
 
+type SubjectLinkRow = {
+  subject: SubjectItem | null;
+};
+
 export default async function Materias() {
   const supabase = await createClient();
   const {
@@ -17,9 +21,9 @@ export default async function Materias() {
     .select("subject:subjects(id,name,study_type)")
     .eq("user_id", user?.id ?? "");
 
-  const subjects = (data ?? [])
-    .map((item) => item.subject as SubjectItem | null)
-    .filter(Boolean) as SubjectItem[];
+  const subjects = ((data as SubjectLinkRow[] | null) ?? [])
+    .map((item: SubjectLinkRow) => item.subject)
+    .filter((subject): subject is SubjectItem => Boolean(subject));
 
   const materiasConcurso = subjects.filter(
     (item) => item.study_type === "Concurso"
