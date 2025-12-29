@@ -12,6 +12,7 @@ type TemplateItem = {
 };
 
 type SubjectRow = {
+  id: string;
   name: string;
 };
 
@@ -80,7 +81,7 @@ export default function OnboardingPage() {
     const loadDefaults = async () => {
       const { data: subjectsData } = await supabase
         .from("subjects")
-        .select("name")
+        .select("id,name")
         .eq("study_type", studyType)
         .eq("is_default", true)
         .order("name", { ascending: true });
