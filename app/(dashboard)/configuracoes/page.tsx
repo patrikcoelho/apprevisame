@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 type SubjectItem = {
@@ -97,6 +98,7 @@ const isNotifyPriority = (value?: string | null): value is NotifyPriority =>
 
 export default function Configuracoes() {
   const supabase = useMemo(() => createClient(), []);
+  const searchParams = useSearchParams();
   const [profileLoaded, setProfileLoaded] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState("—");
@@ -226,6 +228,7 @@ export default function Configuracoes() {
   const [editingProfile, setEditingProfile] = useState(false);
   const [profileName, setProfileName] = useState("");
   const [profileAvatar, setProfileAvatar] = useState("PM");
+  const [profileImageUrl, setProfileImageUrl] = useState<string | null>(null);
   const [editingAccountType, setEditingAccountType] = useState(false);
   const [accountType, setAccountType] = useState<AccountType>("Concurso");
   const [editingPreferences, setEditingPreferences] = useState(false);
@@ -289,6 +292,13 @@ export default function Configuracoes() {
     () => templates.find((item) => item.id === activeTemplateId),
     [templates, activeTemplateId]
   );
+
+  useEffect(() => {
+    const tab = searchParams.get("tab") as TabValue | null;
+    if (tab) {
+      setActiveTab(tab);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -446,6 +456,15 @@ export default function Configuracoes() {
         id: userId,
         study_type: accountType,
       });
+      if (typeof window !== "undefined") {
+        const label =
+          accountType === "Concurso" ? "Concurso público" : "Faculdade";
+        window.dispatchEvent(
+          new CustomEvent("revisame:profile-updated", {
+            detail: { studyType: label },
+          })
+        );
+      }
     }
     setEditingAccountType((prev) => !prev);
   };
@@ -569,8 +588,16 @@ export default function Configuracoes() {
                   />
                 </div>
                 <div className="flex w-full max-w-sm items-center gap-3 rounded-md border border-[#efe2d1] bg-[#fdf8f1] px-4 py-3 text-sm text-[#4b4337]">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full border border-[#e2d6c4] bg-white text-sm font-semibold text-[#6b6357]">
-                    {profileAvatar}
+                  <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full border border-[#e2d6c4] bg-white text-sm font-semibold text-[#6b6357]">
+                    {profileImageUrl ? (
+                      <img
+                        src={profileImageUrl}
+                        alt="Foto do perfil"
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      profileAvatar
+                    )}
                   </div>
                   <div>
                     <p className="text-xs text-[#6b6357]">Foto do perfil</p>
@@ -585,6 +612,17 @@ export default function Configuracoes() {
                         accept="image/*"
                         className="hidden"
                         disabled={!editingProfile}
+                        onChange={(event) => {
+                          const file = event.target.files?.[0];
+                          if (!file) return;
+                          const reader = new FileReader();
+                          reader.onload = () => {
+                            if (typeof reader.result === "string") {
+                              setProfileImageUrl(reader.result);
+                            }
+                          };
+                          reader.readAsDataURL(file);
+                        }}
                       />
                     </label>
                   </div>

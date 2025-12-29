@@ -55,6 +55,19 @@ export default function DashboardLayout({
     loadProfile();
   }, [supabase]);
 
+  useEffect(() => {
+    const handleProfileUpdate = (event: Event) => {
+      const detail = (event as CustomEvent<{ studyType?: string }>).detail;
+      if (detail?.studyType) {
+        setStudyType(detail.studyType);
+      }
+    };
+
+    window.addEventListener("revisame:profile-updated", handleProfileUpdate);
+    return () =>
+      window.removeEventListener("revisame:profile-updated", handleProfileUpdate);
+  }, []);
+
   return (
     <div className="min-h-screen bg-[#f6f1ea] text-[#1d1b16]">
       <div className="pointer-events-none fixed left-[-20rem] top-[-14rem] h-[28rem] w-[28rem] rounded-full bg-[radial-gradient(circle_at_center,rgba(217,91,67,0.25),rgba(246,241,234,0))] blur-3xl" />
@@ -192,9 +205,12 @@ export default function DashboardLayout({
               <p className="mt-2 text-base font-semibold text-[#1f3f35]">
                 {studyType}
               </p>
-              <button className="mt-3 w-full rounded-md border border-[#b7d4c8] bg-[#f5fbf8] px-3 py-2 text-xs font-semibold text-[#2c5b4b]">
+              <Link
+                href="/configuracoes?tab=conta"
+                className="mt-3 block w-full rounded-md border border-[#b7d4c8] bg-[#f5fbf8] px-3 py-2 text-center text-xs font-semibold text-[#2c5b4b]"
+              >
                 Alterar tipo
-              </button>
+              </Link>
             </div>
           </div>
           <div className="rounded-md border border-[#e6dbc9] bg-[#fdf8f1] p-4 text-sm text-[#4b4337]">
