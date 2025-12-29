@@ -35,8 +35,13 @@ export default function DashboardLayout({
         .eq("id", user?.id ?? "")
         .maybeSingle();
 
-      if (profile?.full_name) {
-        setProfileName(profile.full_name);
+      const fallbackName =
+        profile?.full_name ||
+        (user?.user_metadata?.full_name as string | undefined) ||
+        user?.email?.split("@")[0];
+
+      if (fallbackName) {
+        setProfileName(fallbackName);
       }
       if (profile?.study_type) {
         setStudyType(

@@ -30,6 +30,11 @@ export default async function Home() {
     .eq("id", user?.id ?? "")
     .maybeSingle();
 
+  const fallbackName =
+    profile?.full_name ||
+    (user?.user_metadata?.full_name as string | undefined) ||
+    user?.email?.split("@")[0];
+
   const { data: reviewsData } = await supabase
     .from("reviews")
     .select(
@@ -52,6 +57,6 @@ export default async function Home() {
     })) ?? [];
 
   return (
-    <HomeClient fullName={profile?.full_name} initialReviews={initialReviews} />
+    <HomeClient fullName={fallbackName} initialReviews={initialReviews} />
   );
 }

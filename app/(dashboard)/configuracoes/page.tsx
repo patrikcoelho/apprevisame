@@ -313,10 +313,16 @@ export default function Configuracoes() {
 
       const typedProfile = profile as ProfileRow | null;
 
-      if (typedProfile?.full_name) {
-        setProfileName(typedProfile.full_name);
+      const fallbackName =
+        typedProfile?.full_name ||
+        (user?.user_metadata?.full_name as string | undefined) ||
+        user?.email?.split("@")[0] ||
+        "";
+
+      if (fallbackName) {
+        setProfileName(fallbackName);
         setProfileAvatar(
-          typedProfile.full_name
+          fallbackName
             .split(" ")
             .map((part: string) => part[0])
             .slice(0, 2)
