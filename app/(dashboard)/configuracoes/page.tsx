@@ -280,6 +280,147 @@ export default function Configuracoes() {
     "Gratuito"
   );
 
+  const loadProfile = async () => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) return;
+
+    if (user.email) {
+      setUserEmail(user.email);
+    }
+    if (user.id) {
+      setUserId(user.id);
+    }
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select(
+        "full_name,study_type,plan,active_template_id,avatar_url,theme,language,date_format,notify_email,notify_app,notify_daily,notify_daily_time,notify_weekly,notify_weekly_day,notify_weekly_time,notify_overdue_top,notify_priority"
+      )
+      .eq("id", user.id)
+      .maybeSingle();
+
+    const typedProfile = profile as ProfileRow | null;
+
+    const fallbackName =
+      typedProfile?.full_name ||
+      (user.user_metadata?.full_name as string | undefined) ||
+      user.email?.split("@")[0] ||
+      "";
+
+    if (fallbackName) {
+      setProfileName(fallbackName);
+      setProfileAvatar(
+        fallbackName
+          .split(" ")
+          .map((part: string) => part[0])
+          .slice(0, 2)
+          .join("")
+          .toUpperCase()
+      );
+    } else {
+      setProfileAvatar("—");
+    }
+
+    setProfileImageUrl(typedProfile?.avatar_url ?? null);
+
+    if (typedProfile?.study_type) {
+      setAccountType(typedProfile.study_type);
+    }
+    if (typedProfile?.plan) {
+      setActivePlan(typedProfile.plan === "Premium" ? "Premium" : "Gratuito");
+    }
+    if (typedProfile?.active_template_id) {
+      setActiveTemplateId(typedProfile.active_template_id);
+    }
+    if (isPrefMode(typedProfile?.theme)) {
+      setPrefMode(typedProfile.theme);
+    }
+    if (isPrefLanguage(typedProfile?.language)) {
+      setPrefLanguage(typedProfile.language);
+    }
+    if (isPrefDateFormat(typedProfile?.date_format)) {
+      setPrefDateFormat(typedProfile.date_format);
+    }
+    if (typedProfile && typedProfile.notify_email !== null) {
+      setNotifyEmail(Boolean(typedProfile.notify_email));
+    }
+    if (typedProfile && typedProfile.notify_app !== null) {
+      setNotifyApp(Boolean(typedProfile.notify_app));
+    }
+    if (typedProfile && typedProfile.notify_daily !== null) {
+      setNotifyDaily(Boolean(typedProfile.notify_daily));
+    }
+    if (typedProfile && typedProfile.notify_daily_time) {
+      setNotifyDailyTime(typedProfile.notify_daily_time);
+    }
+    if (typedProfile && typedProfile.notify_weekly !== null) {
+      setNotifyWeekly(Boolean(typedProfile.notify_weekly));
+    }
+    if (isNotifyWeeklyDay(typedProfile?.notify_weekly_day)) {
+      setNotifyWeeklyDay(typedProfile.notify_weekly_day);
+    }
+    if (typedProfile && typedProfile.notify_weekly_time) {
+      setNotifyWeeklyTime(typedProfile.notify_weekly_time);
+    }
+    if (typedProfile && typedProfile.notify_overdue_top !== null) {
+      setNotifyOverdueTop(Boolean(typedProfile.notify_overdue_top));
+    }
+    if (isNotifyPriority(typedProfile?.notify_priority)) {
+      setNotifyPriority(typedProfile.notify_priority);
+    }
+
+    const { data: subjectLinks } = await supabase
+      .from("user_subjects")
+      .select("subject:subjects(id,name,study_type,is_default)")
+      .eq("user_id", user.id);
+
+    const subjectItems = (subjectLinks as SubjectLinkRow[] | null) ?? [];
+    const subjectEntries = subjectItems
+      .map((item: SubjectLinkRow) => item.subject)
+      .filter(
+        (
+          subject
+        ): subject is NonNullable<SubjectLinkRow["subject"]> =>
+          Boolean(subject)
+      );
+    const mappedSubjects = subjectEntries.map(
+      (subject: NonNullable<SubjectLinkRow["subject"]>) => ({
+        id: subject.id,
+        label: subject.name,
+        type: subject.study_type,
+        isDefault: subject.is_default,
+      })
+    );
+
+    setSubjects(mappedSubjects);
+
+    const { data: templatesData } = await supabase
+      .from("templates")
+      .select("id,name,cadence_days,is_default,owner_user_id")
+      .eq("study_type", typedProfile?.study_type ?? "Concurso")
+      .order("created_at", { ascending: true });
+
+    const mappedTemplates: TemplateItem[] =
+      (templatesData as TemplateRow[] | null)?.map((item) => ({
+        id: item.id,
+        title: item.name,
+        cadence: item.cadence_days.map((day: number) => `${day}d`).join(", "),
+        detail: item.is_default
+          ? "Template predefinido do sistema."
+          : "Template personalizado.",
+        source: item.is_default
+          ? ("Padrão" as const)
+          : ("Personalizado" as const),
+        steps: item.cadence_days,
+      })) ?? [];
+
+    setTemplates(mappedTemplates);
+    setProfileLoaded(true);
+  };
+
   const filteredSubjects = useMemo(() => {
     const search = materiaSearch.trim().toLowerCase();
     return subjects.filter((item) => {
@@ -302,147 +443,8 @@ export default function Configuracoes() {
   }, [searchParams]);
 
   useEffect(() => {
-    const loadProfile = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (user?.email) {
-        setUserEmail(user.email);
-      }
-      if (user?.id) {
-        setUserId(user.id);
-      }
-
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select(
-          "full_name,study_type,plan,active_template_id,avatar_url,theme,language,date_format,notify_email,notify_app,notify_daily,notify_daily_time,notify_weekly,notify_weekly_day,notify_weekly_time,notify_overdue_top,notify_priority"
-        )
-        .eq("id", user?.id ?? "")
-        .maybeSingle();
-
-      const typedProfile = profile as ProfileRow | null;
-
-      const fallbackName =
-        typedProfile?.full_name ||
-        (user?.user_metadata?.full_name as string | undefined) ||
-        user?.email?.split("@")[0] ||
-        "";
-
-      if (fallbackName) {
-        setProfileName(fallbackName);
-        setProfileAvatar(
-          fallbackName
-            .split(" ")
-            .map((part: string) => part[0])
-            .slice(0, 2)
-            .join("")
-            .toUpperCase()
-        );
-      } else {
-        setProfileAvatar("—");
-      }
-      if (typedProfile?.avatar_url) {
-        setProfileImageUrl(typedProfile.avatar_url);
-      }
-      if (typedProfile?.study_type) {
-        setAccountType(typedProfile.study_type);
-      }
-      if (typedProfile?.plan) {
-        setActivePlan(typedProfile.plan === "Premium" ? "Premium" : "Gratuito");
-      }
-      if (typedProfile?.active_template_id) {
-        setActiveTemplateId(typedProfile.active_template_id);
-      }
-      if (isPrefMode(typedProfile?.theme)) {
-        setPrefMode(typedProfile.theme);
-      }
-      if (isPrefLanguage(typedProfile?.language)) {
-        setPrefLanguage(typedProfile.language);
-      }
-      if (isPrefDateFormat(typedProfile?.date_format)) {
-        setPrefDateFormat(typedProfile.date_format);
-      }
-      if (typedProfile && typedProfile.notify_email !== null) {
-        setNotifyEmail(Boolean(typedProfile.notify_email));
-      }
-      if (typedProfile && typedProfile.notify_app !== null) {
-        setNotifyApp(Boolean(typedProfile.notify_app));
-      }
-      if (typedProfile && typedProfile.notify_daily !== null) {
-        setNotifyDaily(Boolean(typedProfile.notify_daily));
-      }
-      if (typedProfile && typedProfile.notify_daily_time) {
-        setNotifyDailyTime(typedProfile.notify_daily_time);
-      }
-      if (typedProfile && typedProfile.notify_weekly !== null) {
-        setNotifyWeekly(Boolean(typedProfile.notify_weekly));
-      }
-      if (isNotifyWeeklyDay(typedProfile?.notify_weekly_day)) {
-        setNotifyWeeklyDay(typedProfile.notify_weekly_day);
-      }
-      if (typedProfile && typedProfile.notify_weekly_time) {
-        setNotifyWeeklyTime(typedProfile.notify_weekly_time);
-      }
-      if (typedProfile && typedProfile.notify_overdue_top !== null) {
-        setNotifyOverdueTop(Boolean(typedProfile.notify_overdue_top));
-      }
-      if (isNotifyPriority(typedProfile?.notify_priority)) {
-        setNotifyPriority(typedProfile.notify_priority);
-      }
-
-      const { data: subjectLinks } = await supabase
-        .from("user_subjects")
-        .select("subject:subjects(id,name,study_type,is_default)")
-        .eq("user_id", user?.id ?? "");
-
-      const subjectItems = (subjectLinks as SubjectLinkRow[] | null) ?? [];
-      const subjectEntries = subjectItems
-        .map((item: SubjectLinkRow) => item.subject)
-        .filter(
-          (
-            subject
-          ): subject is NonNullable<SubjectLinkRow["subject"]> =>
-            Boolean(subject)
-        );
-      const mappedSubjects = subjectEntries.map(
-        (subject: NonNullable<SubjectLinkRow["subject"]>) => ({
-          id: subject.id,
-          label: subject.name,
-          type: subject.study_type,
-          isDefault: subject.is_default,
-        })
-      );
-
-      setSubjects(mappedSubjects);
-
-      const { data: templatesData } = await supabase
-        .from("templates")
-        .select("id,name,cadence_days,is_default,owner_user_id")
-        .eq("study_type", profile?.study_type ?? "Concurso")
-        .order("created_at", { ascending: true });
-
-      const mappedTemplates: TemplateItem[] =
-        (templatesData as TemplateRow[] | null)?.map((item) => ({
-          id: item.id,
-          title: item.name,
-          cadence: item.cadence_days.map((day: number) => `${day}d`).join(", "),
-          detail: item.is_default
-            ? "Template predefinido do sistema."
-            : "Template personalizado.",
-          source: item.is_default
-            ? ("Padrão" as const)
-            : ("Personalizado" as const),
-          steps: item.cadence_days,
-        })) ?? [];
-
-      setTemplates(mappedTemplates);
-      setProfileLoaded(true);
-    };
-
     loadProfile();
-  }, [supabase]);
+  }, [supabase, activeTab]);
 
   const handleProfileToggle = async () => {
     if (editingProfile && userId) {
@@ -463,6 +465,7 @@ export default function Configuracoes() {
         full_name: safeName,
         study_type: accountType,
       });
+      await loadProfile();
       if (typeof window !== "undefined") {
         const label =
           accountType === "Concurso" ? "Concurso público" : "Faculdade";
