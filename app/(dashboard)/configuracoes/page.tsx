@@ -187,31 +187,31 @@ export default function Configuracoes() {
       if (typedProfile?.date_format) {
         setPrefDateFormat(typedProfile.date_format);
       }
-      if (typedProfile?.notify_email !== null) {
+      if (typedProfile && typedProfile.notify_email !== null) {
         setNotifyEmail(Boolean(typedProfile.notify_email));
       }
-      if (typedProfile?.notify_app !== null) {
+      if (typedProfile && typedProfile.notify_app !== null) {
         setNotifyApp(Boolean(typedProfile.notify_app));
       }
-      if (typedProfile?.notify_daily !== null) {
+      if (typedProfile && typedProfile.notify_daily !== null) {
         setNotifyDaily(Boolean(typedProfile.notify_daily));
       }
-      if (typedProfile?.notify_daily_time) {
+      if (typedProfile && typedProfile.notify_daily_time) {
         setNotifyDailyTime(typedProfile.notify_daily_time);
       }
-      if (typedProfile?.notify_weekly !== null) {
+      if (typedProfile && typedProfile.notify_weekly !== null) {
         setNotifyWeekly(Boolean(typedProfile.notify_weekly));
       }
-      if (typedProfile?.notify_weekly_day) {
+      if (typedProfile && typedProfile.notify_weekly_day) {
         setNotifyWeeklyDay(typedProfile.notify_weekly_day);
       }
-      if (typedProfile?.notify_weekly_time) {
+      if (typedProfile && typedProfile.notify_weekly_time) {
         setNotifyWeeklyTime(typedProfile.notify_weekly_time);
       }
-      if (typedProfile?.notify_overdue_top !== null) {
+      if (typedProfile && typedProfile.notify_overdue_top !== null) {
         setNotifyOverdueTop(Boolean(typedProfile.notify_overdue_top));
       }
-      if (typedProfile?.notify_priority) {
+      if (typedProfile && typedProfile.notify_priority) {
         setNotifyPriority(typedProfile.notify_priority);
       }
 
