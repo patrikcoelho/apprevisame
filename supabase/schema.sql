@@ -14,6 +14,7 @@ create table if not exists profiles (
   study_type study_type not null default 'Concurso',
   plan text not null default 'Gratuito',
   active_template_id uuid,
+  avatar_url text,
   theme text,
   language text,
   date_format text,

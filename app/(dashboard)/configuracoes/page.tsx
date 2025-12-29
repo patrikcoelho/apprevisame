@@ -25,6 +25,7 @@ type ProfileRow = {
   study_type?: "Concurso" | "Faculdade" | null;
   plan?: string | null;
   active_template_id?: string | null;
+  avatar_url?: string | null;
   theme?: string | null;
   language?: string | null;
   date_format?: string | null;
@@ -316,7 +317,7 @@ export default function Configuracoes() {
       const { data: profile } = await supabase
         .from("profiles")
         .select(
-          "full_name,study_type,plan,active_template_id,theme,language,date_format,notify_email,notify_app,notify_daily,notify_daily_time,notify_weekly,notify_weekly_day,notify_weekly_time,notify_overdue_top,notify_priority"
+          "full_name,study_type,plan,active_template_id,avatar_url,theme,language,date_format,notify_email,notify_app,notify_daily,notify_daily_time,notify_weekly,notify_weekly_day,notify_weekly_time,notify_overdue_top,notify_priority"
         )
         .eq("id", user?.id ?? "")
         .maybeSingle();
@@ -341,6 +342,9 @@ export default function Configuracoes() {
         );
       } else {
         setProfileAvatar("—");
+      }
+      if (typedProfile?.avatar_url) {
+        setProfileImageUrl(typedProfile.avatar_url);
       }
       if (typedProfile?.study_type) {
         setAccountType(typedProfile.study_type);
@@ -452,8 +456,11 @@ export default function Configuracoes() {
 
   const handleAccountTypeToggle = async () => {
     if (editingAccountType && userId) {
+      const safeName =
+        profileName || (userEmail !== "—" ? userEmail.split("@")[0] : "Aluno");
       await supabase.from("profiles").upsert({
         id: userId,
+        full_name: safeName,
         study_type: accountType,
       });
       if (typeof window !== "undefined") {
@@ -612,18 +619,38 @@ export default function Configuracoes() {
                         accept="image/*"
                         className="hidden"
                         disabled={!editingProfile}
-                        onChange={(event) => {
-                          const file = event.target.files?.[0];
-                          if (!file) return;
-                          const reader = new FileReader();
-                          reader.onload = () => {
-                            if (typeof reader.result === "string") {
-                              setProfileImageUrl(reader.result);
-                            }
-                          };
-                          reader.readAsDataURL(file);
-                        }}
-                      />
+                      onChange={async (event) => {
+                        const file = event.target.files?.[0];
+                        if (!file) return;
+                        if (!userId) return;
+                        const extension = file.name.split(".").pop() ?? "jpg";
+                        const filePath = `${userId}/avatar.${extension}`;
+                        const reader = new FileReader();
+                        reader.onload = async () => {
+                          if (typeof reader.result === "string") {
+                            setProfileImageUrl(reader.result);
+                          }
+                          await supabase.storage
+                            .from("avatars")
+                            .upload(filePath, file, { upsert: true });
+                          const { data } = supabase.storage
+                            .from("avatars")
+                            .getPublicUrl(filePath);
+                          const safeName =
+                            profileName ||
+                            (userEmail !== "—"
+                              ? userEmail.split("@")[0]
+                              : "Aluno");
+                          await supabase.from("profiles").upsert({
+                            id: userId,
+                            full_name: safeName,
+                            avatar_url: data.publicUrl,
+                          });
+                          setProfileImageUrl(data.publicUrl);
+                        };
+                        reader.readAsDataURL(file);
+                      }}
+                    />
                     </label>
                   </div>
                 </div>
