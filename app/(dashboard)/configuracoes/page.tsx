@@ -224,7 +224,10 @@ export default function Configuracoes() {
         (subjectLinks as SubjectLinkRow[] | null)
           ?.map((item: SubjectLinkRow) => item.subject)
           .filter(
-            (subject): subject is SubjectLinkRow["subject"] => Boolean(subject)
+            (
+              subject
+            ): subject is NonNullable<SubjectLinkRow["subject"]> =>
+              Boolean(subject)
           )
           .map((subject) => ({
             id: subject.id,
