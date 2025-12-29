@@ -244,7 +244,7 @@ export default function Configuracoes() {
         .eq("study_type", profile?.study_type ?? "Concurso")
         .order("created_at", { ascending: true });
 
-      const mappedTemplates =
+      const mappedTemplates: TemplateItem[] =
         (templatesData as TemplateRow[] | null)?.map((item) => ({
           id: item.id,
           title: item.name,
@@ -252,7 +252,9 @@ export default function Configuracoes() {
           detail: item.is_default
             ? "Template predefinido do sistema."
             : "Template personalizado.",
-          source: item.is_default ? "Padrão" : "Personalizado",
+          source: item.is_default
+            ? ("Padrão" as const)
+            : ("Personalizado" as const),
           steps: item.cadence_days,
         })) ?? [];
 
