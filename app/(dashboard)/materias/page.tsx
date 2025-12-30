@@ -13,6 +13,9 @@ type SubjectLinkRow = {
   subject: SubjectItem | null;
 };
 
+const isNonNullable = <T,>(value: T | null | undefined): value is T =>
+  value != null;
+
 export default function Materias() {
   const supabase = useMemo(() => createClient(), []);
   const [subjects, setSubjects] = useState<SubjectItem[]>([]);
@@ -39,7 +42,7 @@ export default function Materias() {
 
       const mapped = ((data as SubjectLinkRow[] | null) ?? [])
         .map((item: SubjectLinkRow) => item.subject)
-        .filter((subject): subject is SubjectItem => Boolean(subject))
+        .filter(isNonNullable)
         .filter((subject) => subject.study_type === resolvedType);
 
       setSubjects(mapped);

@@ -11,6 +11,9 @@ type SubjectOption = {
   label: string;
 };
 
+const isNonNullable = <T,>(value: T | null | undefined): value is T =>
+  value != null;
+
 export default function Adicionar() {
   const supabase = createClient();
   const { addToast } = useToast();
@@ -75,9 +78,7 @@ export default function Adicionar() {
       const mapped =
         (linkedSubjects as LinkedSubject[] | null)
           ?.map((item: LinkedSubject) => item.subject)
-          .filter((subject): subject is { id: string; name: string } =>
-            Boolean(subject)
-          )
+          .filter(isNonNullable)
           .filter((subject) => subject.study_type === profileType)
           .map((subject) => ({
             id: subject.id,
