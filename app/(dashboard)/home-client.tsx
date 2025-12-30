@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { useToast } from "@/app/components/toast-provider";
 
 type Review = {
   id: string;
@@ -54,6 +55,7 @@ const formatDate = (isoDate: string) => {
 
 export default function HomeClient({ fullName, initialReviews }: HomeClientProps) {
   const supabase = createClient();
+  const { addToast } = useToast();
   const [reviews, setReviews] = useState<Review[]>(initialReviews);
   const [activeReview, setActiveReview] = useState<Review | null>(null);
   const [modalType, setModalType] = useState<"defer" | "complete" | null>(
@@ -92,10 +94,19 @@ export default function HomeClient({ fullName, initialReviews }: HomeClientProps
   const confirmDefer = async () => {
     if (!activeReview) return;
     const newDueDate = addDays(activeReview.dueAt, 1);
-    await supabase
+    const { error } = await supabase
       .from("reviews")
       .update({ due_at: new Date(newDueDate + "T00:00:00").toISOString() })
       .eq("id", activeReview.id);
+
+    if (error) {
+      addToast({
+        variant: "error",
+        title: "Não foi possível reagendar.",
+        description: "Tente novamente em instantes.",
+      });
+      return;
+    }
 
     setReviews((prev) =>
       prev.map((review) =>
@@ -104,12 +115,17 @@ export default function HomeClient({ fullName, initialReviews }: HomeClientProps
           : review
       )
     );
+    addToast({
+      variant: "success",
+      title: "Revisão reagendada.",
+      description: "Voltamos este item para o próximo dia.",
+    });
     closeModal();
   };
 
   const confirmComplete = async () => {
     if (!activeReview) return;
-    await supabase
+    const { error } = await supabase
       .from("reviews")
       .update({
         status: "concluida",
@@ -117,7 +133,21 @@ export default function HomeClient({ fullName, initialReviews }: HomeClientProps
       })
       .eq("id", activeReview.id);
 
+    if (error) {
+      addToast({
+        variant: "error",
+        title: "Não foi possível concluir.",
+        description: "Tente novamente em instantes.",
+      });
+      return;
+    }
+
     setReviews((prev) => prev.filter((review) => review.id !== activeReview.id));
+    addToast({
+      variant: "success",
+      title: "Revisão concluída.",
+      description: "Boa, seguimos para a próxima.",
+    });
     closeModal();
   };
 
@@ -129,12 +159,12 @@ export default function HomeClient({ fullName, initialReviews }: HomeClientProps
             Revisões do dia
           </p>
           <h1 className="text-2xl font-semibold text-[#1f1c18]">
-            Olá{fullName ? `, ${fullName}` : ""}. Estas são suas revisões.
+            Olá{fullName ? `, ${fullName}` : ""}.
           </h1>
         </div>
       </div>
 
-      <section className="rounded-lg border border-[#f0c6b9] bg-[#fbe7df] p-6">
+      <section className="rounded-lg border border-[#f0c6b9] bg-[#fbe7df] p-4 sm:p-6">
         <div className="flex items-center justify-between">
           <h2 className="flex items-center gap-2 text-lg font-semibold text-[#7c3c31]">
             <svg
@@ -157,8 +187,39 @@ export default function HomeClient({ fullName, initialReviews }: HomeClientProps
         </div>
         <div className="mt-4 space-y-3">
           {overdue.length === 0 ? (
-            <div className="rounded-md border border-[#f4d6cd] bg-[#fffaf2] px-4 py-4 text-sm text-[#7b4a3f]">
-              Sem revisões atrasadas no momento.
+            <div className="flex flex-col gap-3 rounded-md border border-[#f4d6cd] bg-[#fdf7f3] px-4 py-4 text-sm text-[#7b4a3f]">
+              <div className="flex items-center gap-3">
+                <span className="flex h-9 w-9 items-center justify-center rounded-full border border-[#f4d6cd] bg-white text-[#9d4b3b]">
+                  <svg
+                    aria-hidden="true"
+                    className="h-4 w-4"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <circle cx="12" cy="12" r="9" />
+                    <path d="M9 10h.01M15 10h.01" strokeLinecap="round" />
+                    <path
+                      d="M16 16c-1-1-3-1-4-1s-3 0-4 1"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </span>
+                <div>
+                  <p className="font-semibold text-[#7b4a3f]">
+                    Nenhuma revisão atrasada.
+                  </p>
+                  <p className="text-xs text-[#7b4a3f]">
+                    Seu cronograma está em dia.
+                  </p>
+                </div>
+              </div>
+              <div className="text-xs text-[#7b4a3f]">
+                Passos: mantenha o ritmo diário e revise os próximos itens no
+                horário planejado.
+              </div>
             </div>
           ) : (
             overdue.map((item) => (
@@ -177,7 +238,7 @@ export default function HomeClient({ fullName, initialReviews }: HomeClientProps
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <button
-                    className="rounded-md bg-[#1f5b4b] px-3 py-2 text-xs font-semibold text-[#fffaf2]"
+                    className="min-h-[44px] rounded-md bg-[#1f5b4b] px-4 py-2 text-sm font-semibold text-[#fffaf2]"
                     onClick={() => openCompleteModal(item)}
                   >
                     Realizar revisão
@@ -189,7 +250,7 @@ export default function HomeClient({ fullName, initialReviews }: HomeClientProps
         </div>
       </section>
 
-      <section className="rounded-lg border border-[#e6dbc9] bg-[#fffaf2] p-6">
+      <section className="rounded-lg border border-[#e6dbc9] bg-[#fffaf2] p-4 sm:p-6">
         <div className="flex items-center justify-between">
           <h2 className="flex items-center gap-2 text-lg font-semibold text-[#1f1c18]">
             <svg
@@ -210,9 +271,38 @@ export default function HomeClient({ fullName, initialReviews }: HomeClientProps
         </div>
         <div className="mt-4 space-y-3">
           {todayReviews.length === 0 ? (
-            <div className="rounded-md border border-[#efe2d1] bg-[#fdf8f1] px-4 py-4 text-sm text-[#6b6357]">
-              Nenhuma revisão para hoje. Aproveite para descansar ou estudar algo
-              novo.
+            <div className="flex flex-col gap-3 rounded-md border border-[#efe2d1] bg-[#fbf7f2] px-4 py-4 text-sm text-[#6b6357]">
+              <div className="flex items-center gap-3">
+                <span className="flex h-9 w-9 items-center justify-center rounded-full border border-[#e2d6c4] bg-white text-[#4b4337]">
+                  <svg
+                    aria-hidden="true"
+                    className="h-4 w-4"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <circle cx="12" cy="12" r="9" />
+                    <path d="M9 10h.01M15 10h.01" strokeLinecap="round" />
+                    <path
+                      d="M16 16c-1-1-3-1-4-1s-3 0-4 1"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </span>
+                <div>
+                  <p className="font-semibold text-[#4b4337]">
+                    Nenhuma revisão para hoje.
+                  </p>
+                  <p className="text-xs text-[#6b6357]">
+                    Dia livre para estudar novos assuntos.
+                  </p>
+                </div>
+              </div>
+              <div className="text-xs text-[#6b6357]">
+                Passos: registre um novo estudo ou planeje a próxima semana.
+              </div>
             </div>
           ) : (
             todayReviews.map((item) => (
@@ -231,13 +321,13 @@ export default function HomeClient({ fullName, initialReviews }: HomeClientProps
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <button
-                    className="rounded-md border border-[#e2d6c4] bg-[#f0e6d9] px-3 py-2 text-xs font-semibold text-[#4b4337]"
+                    className="min-h-[44px] rounded-md border border-[#e2d6c4] bg-[#f0e6d9] px-4 py-2 text-sm font-semibold text-[#4b4337]"
                     onClick={() => openDeferModal(item)}
                   >
                     Adiar revisão
                   </button>
                   <button
-                    className="rounded-md bg-[#1f5b4b] px-3 py-2 text-xs font-semibold text-[#fffaf2]"
+                    className="min-h-[44px] rounded-md bg-[#1f5b4b] px-4 py-2 text-sm font-semibold text-[#fffaf2]"
                     onClick={() => openCompleteModal(item)}
                   >
                     Realizar revisão
@@ -251,7 +341,7 @@ export default function HomeClient({ fullName, initialReviews }: HomeClientProps
 
       {modalType && activeReview ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-md rounded-lg bg-[#fffaf2] p-6 shadow-[0_24px_60px_-40px_rgba(31,91,75,0.6)]">
+          <div className="w-full max-w-md rounded-lg bg-[#fffaf2] p-5 shadow-[0_24px_60px_-40px_rgba(31,91,75,0.6)] sm:p-6 max-h-[85vh] overflow-y-auto">
             {modalType === "defer" ? (
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold text-[#1f1c18]">
@@ -263,15 +353,15 @@ export default function HomeClient({ fullName, initialReviews }: HomeClientProps
                 <div className="rounded-md border border-[#efe2d1] bg-[#fdf8f1] px-4 py-3 text-sm text-[#4b4337]">
                   {activeReview.subject} - {activeReview.topic}
                 </div>
-                <div className="flex justify-end gap-2">
+                <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
                   <button
-                    className="rounded-md border border-[#e2d6c4] bg-[#f0e6d9] px-4 py-2 text-xs font-semibold text-[#4b4337]"
+                    className="min-h-[44px] rounded-md border border-[#e2d6c4] bg-[#f0e6d9] px-4 py-2 text-sm font-semibold text-[#4b4337]"
                     onClick={closeModal}
                   >
                     Cancelar
                   </button>
                   <button
-                    className="rounded-md bg-[#1f5b4b] px-4 py-2 text-xs font-semibold text-[#fffaf2]"
+                    className="min-h-[44px] rounded-md bg-[#1f5b4b] px-4 py-2 text-sm font-semibold text-[#fffaf2]"
                     onClick={confirmDefer}
                   >
                     Confirmar adiamento
@@ -286,9 +376,9 @@ export default function HomeClient({ fullName, initialReviews }: HomeClientProps
                 <p className="text-sm text-[#5f574a]">
                   Resolveu alguma questão durante a revisão?
                 </p>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   <button
-                    className={`rounded-md border px-3 py-2 text-xs font-semibold ${
+                    className={`min-h-[44px] rounded-md border px-4 py-2 text-sm font-semibold ${
                       showQuestions
                         ? "border-[#1f5b4b] bg-[#e9f4ef] text-[#1f5b4b]"
                         : "border-[#e2d6c4] bg-[#f0e6d9] text-[#4b4337]"
@@ -298,7 +388,7 @@ export default function HomeClient({ fullName, initialReviews }: HomeClientProps
                     Sim
                   </button>
                   <button
-                    className={`rounded-md border px-3 py-2 text-xs font-semibold ${
+                    className={`min-h-[44px] rounded-md border px-4 py-2 text-sm font-semibold ${
                       !showQuestions
                         ? "border-[#1f5b4b] bg-[#e9f4ef] text-[#1f5b4b]"
                         : "border-[#e2d6c4] bg-[#f0e6d9] text-[#4b4337]"
@@ -321,7 +411,7 @@ export default function HomeClient({ fullName, initialReviews }: HomeClientProps
                         onChange={(event) =>
                           setQuestionsTotal(Number(event.target.value))
                         }
-                        className="w-full rounded-md border border-[#e2d6c4] bg-white px-3 py-2 text-sm text-[#1f1c18]"
+                        className="h-11 w-full rounded-md border border-[#e2d6c4] bg-white px-3 text-base text-[#1f1c18]"
                       />
                     </div>
                     <div className="space-y-1">
@@ -335,20 +425,20 @@ export default function HomeClient({ fullName, initialReviews }: HomeClientProps
                         onChange={(event) =>
                           setQuestionsCorrect(Number(event.target.value))
                         }
-                        className="w-full rounded-md border border-[#e2d6c4] bg-white px-3 py-2 text-sm text-[#1f1c18]"
+                        className="h-11 w-full rounded-md border border-[#e2d6c4] bg-white px-3 text-base text-[#1f1c18]"
                       />
                     </div>
                   </div>
                 ) : null}
-                <div className="flex justify-end gap-2">
+                <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
                   <button
-                    className="rounded-md border border-[#e2d6c4] bg-[#f0e6d9] px-4 py-2 text-xs font-semibold text-[#4b4337]"
+                    className="min-h-[44px] rounded-md border border-[#e2d6c4] bg-[#f0e6d9] px-4 py-2 text-sm font-semibold text-[#4b4337]"
                     onClick={closeModal}
                   >
                     Cancelar
                   </button>
                   <button
-                    className="rounded-md bg-[#1f5b4b] px-4 py-2 text-xs font-semibold text-[#fffaf2]"
+                    className="min-h-[44px] rounded-md bg-[#1f5b4b] px-4 py-2 text-sm font-semibold text-[#fffaf2]"
                     onClick={confirmComplete}
                   >
                     Concluir revisão

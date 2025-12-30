@@ -4,10 +4,12 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { useToast } from "@/app/components/toast-provider";
 
 export default function CadastroPage() {
   const router = useRouter();
   const supabase = createClient();
+  const { addToast } = useToast();
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -24,6 +26,11 @@ export default function CadastroPage() {
     if (password !== confirmPassword) {
       setStatus("error");
       setMessage("As senhas não coincidem.");
+      addToast({
+        variant: "error",
+        title: "As senhas não coincidem.",
+        description: "Verifique e tente novamente.",
+      });
       return;
     }
 
@@ -43,11 +50,21 @@ export default function CadastroPage() {
     if (error) {
       setStatus("error");
       setMessage("Não foi possível criar a conta.");
+      addToast({
+        variant: "error",
+        title: "Não foi possível criar a conta.",
+        description: "Tente novamente em instantes.",
+      });
       return;
     }
 
     if (data.session) {
       setStatus("success");
+      addToast({
+        variant: "success",
+        title: "Conta criada.",
+        description: "Vamos iniciar o onboarding.",
+      });
       router.push("/onboarding");
       router.refresh();
       return;
@@ -57,6 +74,11 @@ export default function CadastroPage() {
     setMessage(
       "Conta criada. Verifique seu e-mail para confirmar o acesso."
     );
+    addToast({
+      variant: "success",
+      title: "Conta criada.",
+      description: "Confira seu e-mail para confirmar o acesso.",
+    });
   };
 
   return (
@@ -81,7 +103,7 @@ export default function CadastroPage() {
             placeholder="Seu nome completo"
             value={fullName}
             onChange={(event) => setFullName(event.target.value)}
-            className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-sm text-[#1f1c18]"
+            className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-base text-[#1f1c18]"
           />
         </div>
         <div>
@@ -91,7 +113,7 @@ export default function CadastroPage() {
             placeholder="voce@email.com"
             value={email}
             onChange={(event) => setEmail(event.target.value)}
-            className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-sm text-[#1f1c18]"
+            className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-base text-[#1f1c18]"
           />
         </div>
         <div>
@@ -101,7 +123,7 @@ export default function CadastroPage() {
             placeholder="Crie uma senha segura"
             value={password}
             onChange={(event) => setPassword(event.target.value)}
-            className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-sm text-[#1f1c18]"
+            className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-base text-[#1f1c18]"
           />
         </div>
         <div>
@@ -113,11 +135,11 @@ export default function CadastroPage() {
             placeholder="Repita a senha"
             value={confirmPassword}
             onChange={(event) => setConfirmPassword(event.target.value)}
-            className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-sm text-[#1f1c18]"
+            className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-base text-[#1f1c18]"
           />
         </div>
         <button
-          className="w-full rounded-md bg-[#1f5b4b] px-4 py-3 text-sm font-semibold text-[#fffaf2] shadow-[0_12px_30px_-20px_rgba(31,91,75,0.6)] disabled:cursor-not-allowed disabled:bg-[#9fbfb5]"
+          className="min-h-[48px] w-full rounded-md bg-[#1f5b4b] px-4 py-3 text-base font-semibold text-[#fffaf2] shadow-[0_12px_30px_-20px_rgba(31,91,75,0.6)] disabled:cursor-not-allowed disabled:bg-[#9fbfb5]"
           type="submit"
           disabled={
             status === "loading" ||

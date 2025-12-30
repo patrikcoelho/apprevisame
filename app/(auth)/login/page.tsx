@@ -4,10 +4,12 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { useToast } from "@/app/components/toast-provider";
 
 export default function LoginPage() {
   const router = useRouter();
   const supabase = createClient();
+  const { addToast } = useToast();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
@@ -29,10 +31,20 @@ export default function LoginPage() {
     if (error) {
       setStatus("error");
       setMessage("E-mail ou senha inválidos.");
+      addToast({
+        variant: "error",
+        title: "E-mail ou senha inválidos.",
+        description: "Confira seus dados e tente novamente.",
+      });
       return;
     }
 
     setStatus("idle");
+    addToast({
+      variant: "success",
+      title: "Login realizado.",
+      description: "Bem-vindo de volta.",
+    });
     router.push("/");
     router.refresh();
   };
@@ -41,6 +53,11 @@ export default function LoginPage() {
     if (!email) {
       setMessage("Informe seu e-mail para recuperar a senha.");
       setStatus("error");
+      addToast({
+        variant: "error",
+        title: "Informe seu e-mail.",
+        description: "Precisamos do e-mail para enviar o link.",
+      });
       return;
     }
 
@@ -55,12 +72,22 @@ export default function LoginPage() {
       setStatus("error");
       setMessage("Não foi possível enviar o link de recuperação.");
       setResetStatus("idle");
+      addToast({
+        variant: "error",
+        title: "Não foi possível enviar o link.",
+        description: "Tente novamente em instantes.",
+      });
       return;
     }
 
     setResetStatus("sent");
     setStatus("idle");
     setMessage("Enviamos um link de recuperação para o seu e-mail.");
+    addToast({
+      variant: "success",
+      title: "Link de recuperação enviado.",
+      description: "Confira sua caixa de entrada.",
+    });
   };
 
   return (
@@ -85,7 +112,7 @@ export default function LoginPage() {
             placeholder="voce@email.com"
             value={email}
             onChange={(event) => setEmail(event.target.value)}
-            className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-sm text-[#1f1c18]"
+            className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-base text-[#1f1c18]"
           />
         </div>
         <div>
@@ -95,7 +122,7 @@ export default function LoginPage() {
             placeholder="Digite sua senha"
             value={password}
             onChange={(event) => setPassword(event.target.value)}
-            className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-sm text-[#1f1c18]"
+            className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-base text-[#1f1c18]"
           />
           <div className="mt-2 flex items-center justify-between text-xs text-[#6b6357]">
             <label className="flex items-center gap-2">
@@ -116,7 +143,7 @@ export default function LoginPage() {
         </div>
 
         <button
-          className="w-full rounded-md bg-[#1f5b4b] px-4 py-3 text-sm font-semibold text-[#fffaf2] shadow-[0_12px_30px_-20px_rgba(31,91,75,0.6)] disabled:cursor-not-allowed disabled:bg-[#9fbfb5]"
+          className="min-h-[48px] w-full rounded-md bg-[#1f5b4b] px-4 py-3 text-base font-semibold text-[#fffaf2] shadow-[0_12px_30px_-20px_rgba(31,91,75,0.6)] disabled:cursor-not-allowed disabled:bg-[#9fbfb5]"
           type="submit"
           disabled={status === "loading" || !email || !password}
         >

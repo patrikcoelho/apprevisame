@@ -8,8 +8,8 @@ export default function AuthLayout({
       <div className="pointer-events-none fixed left-[-20rem] top-[-14rem] h-[28rem] w-[28rem] rounded-full bg-[radial-gradient(circle_at_center,rgba(217,91,67,0.25),rgba(246,241,234,0))] blur-3xl" />
       <div className="pointer-events-none fixed right-[-18rem] top-24 h-[30rem] w-[30rem] rounded-full bg-[radial-gradient(circle_at_center,rgba(31,91,75,0.25),rgba(246,241,234,0))] blur-3xl" />
 
-      <div className="mx-auto flex min-h-screen max-w-5xl items-center px-6 py-10">
-        <div className="grid w-full gap-8 rounded-2xl border border-[#e6dbc9] bg-[#fffaf2] p-8 shadow-[0_18px_40px_-30px_rgba(31,91,75,0.5)] md:grid-cols-[1.1fr_1fr]">
+      <div className="mx-auto flex min-h-screen max-w-5xl items-center px-4 py-8 md:px-6 md:py-10">
+        <div className="grid w-full gap-6 rounded-2xl border border-[#e6dbc9] bg-[#fffaf2] p-5 shadow-[0_18px_40px_-30px_rgba(31,91,75,0.5)] sm:p-6 md:grid-cols-[1.1fr_1fr] md:gap-8 md:p-8">
           <div className="space-y-6">
             <div className="flex items-center gap-3">
               <div className="flex h-12 w-12 items-center justify-center rounded-md bg-[#1f5b4b] text-lg font-semibold text-[#fffaf2]">
@@ -57,7 +57,7 @@ export default function AuthLayout({
               </p>
             </div>
           </div>
-          <div className="rounded-xl border border-[#efe2d1] bg-white/70 p-6">
+          <div className="rounded-xl border border-[#efe2d1] bg-white/70 p-5 sm:p-6">
             {children}
           </div>
         </div>

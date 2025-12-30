@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
+import { useToast } from "@/app/components/toast-provider";
 
 type SubjectItem = {
   id: string;
@@ -100,6 +102,7 @@ const isNotifyPriority = (value?: string | null): value is NotifyPriority =>
 export default function Configuracoes() {
   const supabase = useMemo(() => createClient(), []);
   const searchParams = useSearchParams();
+  const { addToast } = useToast();
   const [profileLoaded, setProfileLoaded] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState("—");
@@ -230,6 +233,9 @@ export default function Configuracoes() {
   const [profileName, setProfileName] = useState("");
   const [profileAvatar, setProfileAvatar] = useState("PM");
   const [profileImageUrl, setProfileImageUrl] = useState<string | null>(null);
+  const [avatarStatus, setAvatarStatus] = useState<
+    "idle" | "saving" | "saved" | "error"
+  >("idle");
   const [editingAccountType, setEditingAccountType] = useState(false);
   const [accountType, setAccountType] = useState<AccountType>("Concurso");
   const [editingPreferences, setEditingPreferences] = useState(false);
@@ -261,6 +267,14 @@ export default function Configuracoes() {
     useState<MateriaFilter>("Todas");
   const [showMateriaModal, setShowMateriaModal] = useState(false);
   const [novaMateria, setNovaMateria] = useState("");
+  const [showEditMateriaModal, setShowEditMateriaModal] = useState(false);
+  const [materiaBeingEdited, setMateriaBeingEdited] =
+    useState<SubjectItem | null>(null);
+  const [editMateriaName, setEditMateriaName] = useState("");
+  const [showDeleteMateriaModal, setShowDeleteMateriaModal] = useState(false);
+  const [materiaToDelete, setMateriaToDelete] = useState<SubjectItem | null>(
+    null
+  );
   const [subjects, setSubjects] = useState<SubjectItem[]>([]);
   const [templates, setTemplates] = useState<TemplateItem[]>([]);
   const [activeTemplateId, setActiveTemplateId] = useState<string | null>(null);
@@ -280,18 +294,50 @@ export default function Configuracoes() {
     "Gratuito"
   );
 
-  const loadProfile = async () => {
+  const resolveUserId = useCallback(async () => {
+    if (userId) return userId;
     const {
       data: { user },
     } = await supabase.auth.getUser();
+    if (user?.id) return user.id;
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    return session?.user?.id ?? null;
+  }, [supabase, userId]);
 
-    if (!user) return;
+  const resolveAvatarUrl = useCallback(
+    async (avatarUrl: string | null) => {
+      if (!avatarUrl) return null;
+      if (avatarUrl.startsWith("http")) return avatarUrl;
+      const { data } = await supabase.storage
+        .from("avatars")
+        .createSignedUrl(avatarUrl, 60 * 60);
+      if (data?.signedUrl) return data.signedUrl;
+      const { data: publicData } = supabase.storage
+        .from("avatars")
+        .getPublicUrl(avatarUrl);
+      return publicData.publicUrl ?? null;
+    },
+    [supabase]
+  );
 
-    if (user.email) {
-      setUserEmail(user.email);
+  const loadProfile = useCallback(async () => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    const resolvedUser = user ?? session?.user;
+
+    if (!resolvedUser) return;
+
+    if (resolvedUser.email) {
+      setUserEmail(resolvedUser.email);
     }
-    if (user.id) {
-      setUserId(user.id);
+    if (resolvedUser.id) {
+      setUserId(resolvedUser.id);
     }
 
     const { data: profile } = await supabase
@@ -299,42 +345,45 @@ export default function Configuracoes() {
       .select(
         "full_name,study_type,plan,active_template_id,avatar_url,theme,language,date_format,notify_email,notify_app,notify_daily,notify_daily_time,notify_weekly,notify_weekly_day,notify_weekly_time,notify_overdue_top,notify_priority"
       )
-      .eq("id", user.id)
+      .eq("id", resolvedUser.id)
       .maybeSingle();
 
     const typedProfile = profile as ProfileRow | null;
 
     const fallbackName =
       typedProfile?.full_name ||
-      (user.user_metadata?.full_name as string | undefined) ||
-      user.email?.split("@")[0] ||
+      (resolvedUser.user_metadata?.full_name as string | undefined) ||
+      resolvedUser.email?.split("@")[0] ||
       "";
+    setProfileName(fallbackName);
+    setProfileAvatar(
+      fallbackName
+        ? fallbackName
+            .split(" ")
+            .map((part: string) => part[0])
+            .slice(0, 2)
+            .join("")
+            .toUpperCase()
+        : "—"
+    );
 
-    if (fallbackName) {
-      setProfileName(fallbackName);
-      setProfileAvatar(
-        fallbackName
-          .split(" ")
-          .map((part: string) => part[0])
-          .slice(0, 2)
-          .join("")
-          .toUpperCase()
-      );
-    } else {
-      setProfileAvatar("—");
-    }
+    setProfileImageUrl(await resolveAvatarUrl(typedProfile?.avatar_url ?? null));
 
-    setProfileImageUrl(typedProfile?.avatar_url ?? null);
-
-    if (typedProfile?.study_type) {
-      setAccountType(typedProfile.study_type);
+    const metadataStudyType = resolvedUser.user_metadata?.study_type;
+    const resolvedStudyTypeFromProfile =
+      typedProfile?.study_type ||
+      (metadataStudyType === "Concurso" || metadataStudyType === "Faculdade"
+        ? metadataStudyType
+        : null);
+    const currentStudyType =
+      (resolvedStudyTypeFromProfile as AccountType | null) ?? accountType;
+    if (resolvedStudyTypeFromProfile) {
+      setAccountType(resolvedStudyTypeFromProfile);
     }
     if (typedProfile?.plan) {
       setActivePlan(typedProfile.plan === "Premium" ? "Premium" : "Gratuito");
     }
-    if (typedProfile?.active_template_id) {
-      setActiveTemplateId(typedProfile.active_template_id);
-    }
+    setActiveTemplateId(typedProfile?.active_template_id ?? null);
     if (isPrefMode(typedProfile?.theme)) {
       setPrefMode(typedProfile.theme);
     }
@@ -372,10 +421,12 @@ export default function Configuracoes() {
       setNotifyPriority(typedProfile.notify_priority);
     }
 
+    const resolvedStudyType = currentStudyType;
+
     const { data: subjectLinks } = await supabase
       .from("user_subjects")
       .select("subject:subjects(id,name,study_type,is_default)")
-      .eq("user_id", user.id);
+      .eq("user_id", resolvedUser.id);
 
     const subjectItems = (subjectLinks as SubjectLinkRow[] | null) ?? [];
     const subjectEntries = subjectItems
@@ -397,14 +448,45 @@ export default function Configuracoes() {
 
     setSubjects(mappedSubjects);
 
-    const { data: templatesData } = await supabase
+    const { data: defaultTemplates } = await supabase
       .from("templates")
       .select("id,name,cadence_days,is_default,owner_user_id")
-      .eq("study_type", typedProfile?.study_type ?? "Concurso")
+      .eq("is_default", true)
       .order("created_at", { ascending: true });
 
+    const { data: userTemplates } = await supabase
+      .from("templates")
+      .select("id,name,cadence_days,is_default,owner_user_id")
+      .eq("owner_user_id", resolvedUser.id)
+      .order("created_at", { ascending: true });
+
+    const baseTemplates = [
+      ...new Map(
+        ([...(defaultTemplates ?? []), ...(userTemplates ?? [])] as TemplateRow[]).map(
+          (item) => [item.id, item]
+        )
+      ).values(),
+    ];
+    let resolvedTemplates = baseTemplates;
+
+    if (
+      typedProfile?.active_template_id &&
+      !baseTemplates.some((item) => item.id === typedProfile.active_template_id)
+    ) {
+      const { data: activeTemplate } = await supabase
+        .from("templates")
+        .select("id,name,cadence_days,is_default,owner_user_id")
+        .eq("id", typedProfile.active_template_id)
+        .maybeSingle();
+      if (activeTemplate) {
+        if (!resolvedTemplates.some((item) => item.id === activeTemplate.id)) {
+          resolvedTemplates = [...resolvedTemplates, activeTemplate];
+        }
+      }
+    }
+
     const mappedTemplates: TemplateItem[] =
-      (templatesData as TemplateRow[] | null)?.map((item) => ({
+      resolvedTemplates.map((item) => ({
         id: item.id,
         title: item.name,
         cadence: item.cadence_days.map((day: number) => `${day}d`).join(", "),
@@ -417,9 +499,29 @@ export default function Configuracoes() {
         steps: item.cadence_days,
       })) ?? [];
 
-    setTemplates(mappedTemplates);
+    const activeId = typedProfile?.active_template_id ?? null;
+    const sortedTemplates = [...mappedTemplates].sort((a, b) => {
+      if (a.id === activeId) return -1;
+      if (b.id === activeId) return 1;
+      return a.title.localeCompare(b.title);
+    });
+    setTemplates(sortedTemplates);
+    if (
+      typedProfile?.active_template_id &&
+      mappedTemplates.length > 0 &&
+      !mappedTemplates.some(
+        (template) => template.id === typedProfile.active_template_id
+      )
+    ) {
+      const fallbackTemplate = mappedTemplates[0];
+      setActiveTemplateId(fallbackTemplate.id);
+      await supabase.from("profiles").upsert({
+        id: resolvedUser.id,
+        active_template_id: fallbackTemplate.id,
+      });
+    }
     setProfileLoaded(true);
-  };
+  }, [supabase]);
 
   const filteredSubjects = useMemo(() => {
     const search = materiaSearch.trim().toLowerCase();
@@ -435,6 +537,106 @@ export default function Configuracoes() {
     [templates, activeTemplateId]
   );
 
+  const orderedTemplates = useMemo(() => {
+    if (!activeTemplateId) return templates;
+    return [...templates].sort((a, b) => {
+      if (a.id === activeTemplateId) return -1;
+      if (b.id === activeTemplateId) return 1;
+      return a.title.localeCompare(b.title);
+    });
+  }, [templates, activeTemplateId]);
+
+  useEffect(() => {
+    const ensureActiveTemplate = async () => {
+      if (!activeTemplateId) return;
+      if (templates.some((item) => item.id === activeTemplateId)) return;
+      const ownerFilter = userId ? `,owner_user_id.eq.${userId}` : "";
+      const { data: activeTemplateRow } = await supabase
+        .from("templates")
+        .select("id,name,cadence_days,is_default,owner_user_id")
+        .eq("id", activeTemplateId)
+        .or(`is_default.eq.true${ownerFilter}`)
+        .maybeSingle();
+      if (!activeTemplateRow) return;
+      const mappedTemplate: TemplateItem = {
+        id: activeTemplateRow.id,
+        title: activeTemplateRow.name,
+        cadence: activeTemplateRow.cadence_days
+          .map((day: number) => `${day}d`)
+          .join(", "),
+        detail: activeTemplateRow.is_default
+          ? "Template predefinido do sistema."
+          : "Template personalizado.",
+        source: activeTemplateRow.is_default
+          ? ("Padrão" as const)
+          : ("Personalizado" as const),
+        steps: activeTemplateRow.cadence_days,
+      };
+      setTemplates((prev) => [...prev, mappedTemplate]);
+    };
+
+    ensureActiveTemplate();
+  }, [activeTemplateId, supabase, templates]);
+
+  useEffect(() => {
+    const syncActiveTemplate = async () => {
+      if (!templates.length || activeTemplateId) return;
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("active_template_id")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      const profileActiveId = profile?.active_template_id ?? null;
+      if (profileActiveId) {
+        const exists = templates.some((item) => item.id === profileActiveId);
+        if (exists) {
+          setActiveTemplateId(profileActiveId);
+          return;
+        }
+        const { data: activeTemplateRow } = await supabase
+          .from("templates")
+          .select("id,name,cadence_days,is_default,owner_user_id")
+          .eq("id", profileActiveId)
+          .maybeSingle();
+        if (activeTemplateRow) {
+          setTemplates((prev) => [
+            ...prev,
+            {
+              id: activeTemplateRow.id,
+              title: activeTemplateRow.name,
+              cadence: activeTemplateRow.cadence_days
+                .map((day: number) => `${day}d`)
+                .join(", "),
+              detail: activeTemplateRow.is_default
+                ? "Template predefinido do sistema."
+                : "Template personalizado.",
+              source: activeTemplateRow.is_default
+                ? ("Padrão" as const)
+                : ("Personalizado" as const),
+              steps: activeTemplateRow.cadence_days,
+            },
+          ]);
+          setActiveTemplateId(activeTemplateRow.id);
+          return;
+        }
+      }
+
+      const fallbackTemplate = templates[0];
+      setActiveTemplateId(fallbackTemplate.id);
+      await supabase.from("profiles").upsert({
+        id: user.id,
+        active_template_id: fallbackTemplate.id,
+      });
+    };
+
+    syncActiveTemplate();
+  }, [activeTemplateId, supabase, templates]);
+
   useEffect(() => {
     const tab = searchParams.get("tab") as TabValue | null;
     if (tab) {
@@ -444,57 +646,163 @@ export default function Configuracoes() {
 
   useEffect(() => {
     loadProfile();
-  }, [supabase, activeTab]);
+  }, [activeTab, loadProfile]);
+
+  useEffect(() => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        loadProfile();
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [loadProfile, supabase]);
+
+  useEffect(() => {
+    const handleProfileSync = (event: Event) => {
+      const detail = (
+        event as CustomEvent<{
+          fullName?: string;
+          email?: string;
+          studyType?: "Concurso" | "Faculdade" | null;
+          avatarUrl?: string | null;
+        }>
+      ).detail;
+
+      if (detail?.fullName) {
+        setProfileName(detail.fullName);
+        setProfileAvatar(
+          detail.fullName
+            .split(" ")
+            .map((part) => part[0])
+            .slice(0, 2)
+            .join("")
+            .toUpperCase()
+        );
+      }
+      if (detail?.email) {
+        setUserEmail(detail.email);
+      }
+      if (detail?.studyType) {
+        setAccountType(detail.studyType);
+      }
+      if (detail?.avatarUrl) {
+        resolveAvatarUrl(detail.avatarUrl).then((resolved) => {
+          if (resolved) {
+            setProfileImageUrl(resolved);
+          }
+        });
+      }
+    };
+
+    window.addEventListener("revisame:profile-sync", handleProfileSync);
+    return () => {
+      window.removeEventListener("revisame:profile-sync", handleProfileSync);
+    };
+  }, [resolveAvatarUrl]);
 
   const handleProfileToggle = async () => {
-    if (editingProfile && userId) {
-      await supabase.from("profiles").upsert({
-        id: userId,
+    if (editingProfile) {
+      const resolvedUserId = await resolveUserId();
+      if (!resolvedUserId) return;
+      const { error } = await supabase.from("profiles").upsert({
+        id: resolvedUserId,
         full_name: profileName,
+      });
+      if (error) {
+        addToast({
+          variant: "error",
+          title: "Não foi possível salvar o perfil.",
+          description: "Tente novamente em instantes.",
+        });
+        return;
+      }
+      addToast({
+        variant: "success",
+        title: "Perfil atualizado.",
+        description: "Suas alterações foram salvas.",
       });
     }
     setEditingProfile((prev) => !prev);
   };
 
   const handleAccountTypeToggle = async () => {
-    if (editingAccountType && userId) {
+    if (editingAccountType) {
+      const resolvedUserId = await resolveUserId();
+      if (!resolvedUserId) return;
       const safeName =
         profileName || (userEmail !== "—" ? userEmail.split("@")[0] : "Aluno");
-      await supabase.from("profiles").upsert({
-        id: userId,
+      const { error } = await supabase.from("profiles").upsert({
+        id: resolvedUserId,
         full_name: safeName,
         study_type: accountType,
       });
+      if (error) {
+        addToast({
+          variant: "error",
+          title: "Não foi possível atualizar o tipo de conta.",
+          description: "Tente novamente em instantes.",
+        });
+        return;
+      }
       await loadProfile();
       if (typeof window !== "undefined") {
         const label =
-          accountType === "Concurso" ? "Concurso público" : "Faculdade";
+          accountType === "Concurso"
+            ? "Concurso público"
+            : "Vestibular/Faculdade";
         window.dispatchEvent(
           new CustomEvent("revisame:profile-updated", {
             detail: { studyType: label },
           })
         );
       }
+      addToast({
+        variant: "success",
+        title: "Tipo de conta atualizado.",
+        description: "As matérias foram ajustadas.",
+      });
     }
     setEditingAccountType((prev) => !prev);
   };
 
   const handlePreferencesToggle = async () => {
-    if (editingPreferences && userId) {
-      await supabase.from("profiles").upsert({
-        id: userId,
+    if (editingPreferences) {
+      const resolvedUserId = await resolveUserId();
+      if (!resolvedUserId) return;
+      const { error } = await supabase.from("profiles").upsert({
+        id: resolvedUserId,
         theme: prefMode === "Não definido" ? null : prefMode,
         language: prefLanguage === "Não definido" ? null : prefLanguage,
         date_format: prefDateFormat === "Não definido" ? null : prefDateFormat,
+      });
+      if (error) {
+        addToast({
+          variant: "error",
+          title: "Não foi possível salvar as preferências.",
+          description: "Tente novamente em instantes.",
+        });
+        return;
+      }
+      addToast({
+        variant: "success",
+        title: "Preferências salvas.",
+        description: "As configurações foram atualizadas.",
       });
     }
     setEditingPreferences((prev) => !prev);
   };
 
   const handleNotificationsToggle = async () => {
-    if (editingNotifications && userId) {
-      await supabase.from("profiles").upsert({
-        id: userId,
+    if (editingNotifications) {
+      const resolvedUserId = await resolveUserId();
+      if (!resolvedUserId) return;
+      const { error } = await supabase.from("profiles").upsert({
+        id: resolvedUserId,
         notify_email: notifyEmail,
         notify_app: notifyApp,
         notify_daily: notifyDaily,
@@ -505,16 +813,43 @@ export default function Configuracoes() {
         notify_overdue_top: notifyOverdueTop,
         notify_priority: notifyPriority,
       });
+      if (error) {
+        addToast({
+          variant: "error",
+          title: "Não foi possível salvar notificações.",
+          description: "Tente novamente em instantes.",
+        });
+        return;
+      }
+      addToast({
+        variant: "success",
+        title: "Notificações atualizadas.",
+        description: "Suas preferências foram salvas.",
+      });
     }
     setEditingNotifications((prev) => !prev);
   };
 
   const handlePlanChange = async (plan: "Gratuito" | "Premium") => {
-    if (!userId) return;
-    setActivePlan(plan);
-    await supabase.from("profiles").upsert({
-      id: userId,
+    const resolvedUserId = await resolveUserId();
+    if (!resolvedUserId) return;
+    const { error } = await supabase.from("profiles").upsert({
+      id: resolvedUserId,
       plan,
+    });
+    if (error) {
+      addToast({
+        variant: "error",
+        title: "Não foi possível atualizar o plano.",
+        description: "Tente novamente em instantes.",
+      });
+      return;
+    }
+    setActivePlan(plan);
+    addToast({
+      variant: "success",
+      title: "Plano atualizado.",
+      description: `Plano ${plan} ativo.`,
     });
   };
 
@@ -522,11 +857,8 @@ export default function Configuracoes() {
     <div className="space-y-6">
       <header className="flex flex-col gap-3">
         <div className="space-y-1">
-          <p className="text-xs uppercase tracking-[0.35em] text-[#6c5f4f]">
-            Configurações
-          </p>
           <h1 className="text-2xl font-semibold text-[#1f1c18]">
-            Controle total da sua conta.
+            Configurações
           </h1>
           <p className="text-sm text-[#5f574a]">
             Ajuste tipo de estudo, matérias, templates e notificações.
@@ -534,28 +866,31 @@ export default function Configuracoes() {
         </div>
       </header>
 
-      <nav className="flex flex-wrap items-center gap-2 rounded-lg border border-[#e6dbc9] bg-[#fffdf9] px-4 py-3 text-sm font-semibold text-[#4b4337]">
-        {tabs.map((item) => (
-          <button
-            key={item.value}
-            type="button"
-            onClick={() => setActiveTab(item.value)}
-            className={`rounded-md px-3 py-2 ${
-              activeTab === item.value
-                ? "bg-[#f0e6d9] text-[#1f3f35]"
-                : "hover:bg-[#f6efe4]"
-            }`}
-          >
-            <span className="flex items-center gap-2">
-              {item.icon}
-              {item.label}
-            </span>
-          </button>
-        ))}
-      </nav>
+      <div className="relative w-full max-w-full overflow-hidden">
+        <nav className="flex w-full max-w-full items-center gap-2 overflow-x-auto rounded-lg border border-[#e6dbc9] bg-[#fffdf9] px-4 py-3 text-sm font-semibold text-[#4b4337]">
+          {tabs.map((item) => (
+            <button
+              key={item.value}
+              type="button"
+              onClick={() => setActiveTab(item.value)}
+              className={`whitespace-nowrap rounded-md px-3 py-2.5 ${
+                activeTab === item.value
+                  ? "bg-[#f0e6d9] text-[#1f3f35]"
+                  : "hover:bg-[#f6efe4]"
+              }`}
+            >
+              <span className="flex items-center gap-2">
+                {item.icon}
+                {item.label}
+              </span>
+            </button>
+          ))}
+        </nav>
+        <div className="pointer-events-none absolute right-0 top-0 h-full w-8 bg-gradient-to-l from-[#fffdf9] to-transparent md:hidden" />
+      </div>
 
       {activeTab === "conta" ? (
-        <section className="rounded-lg border border-[#e6dbc9] bg-[#fffaf2] p-6">
+        <section className="rounded-lg border border-[#e6dbc9] bg-[#fffaf2] p-4 sm:p-6">
           <div className="space-y-8">
             <div>
               <div className="flex items-center gap-2 text-sm font-semibold text-[#4b4337]">
@@ -583,7 +918,7 @@ export default function Configuracoes() {
                     onChange={(event) => setProfileName(event.target.value)}
                     disabled={!editingProfile}
                     placeholder="Seu nome"
-                    className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-sm text-[#1f1c18] disabled:bg-[#fdf8f1] disabled:text-[#6b6357]"
+                    className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-base text-[#1f1c18] disabled:bg-[#fdf8f1] disabled:text-[#6b6357]"
                   />
                 </div>
                 <div className="w-full max-w-sm">
@@ -598,12 +933,15 @@ export default function Configuracoes() {
                   />
                 </div>
                 <div className="flex w-full max-w-sm items-center gap-3 rounded-md border border-[#efe2d1] bg-[#fdf8f1] px-4 py-3 text-sm text-[#4b4337]">
-                  <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full border border-[#e2d6c4] bg-white text-sm font-semibold text-[#6b6357]">
+                  <div className="relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-full border border-[#e2d6c4] bg-white text-sm font-semibold text-[#6b6357]">
                     {profileImageUrl ? (
-                      <img
+                      <Image
                         src={profileImageUrl}
                         alt="Foto do perfil"
-                        className="h-full w-full object-cover"
+                        fill
+                        sizes="48px"
+                        className="object-cover"
+                        unoptimized
                       />
                     ) : (
                       profileAvatar
@@ -611,56 +949,92 @@ export default function Configuracoes() {
                   </div>
                   <div>
                     <p className="text-xs text-[#6b6357]">Foto do perfil</p>
-                    <label className={`mt-1 inline-flex items-center gap-2 rounded-md border px-3 py-2 text-xs font-semibold ${
-                      editingProfile
-                        ? "cursor-pointer border-[#e2d6c4] bg-white text-[#4b4337]"
-                        : "border-[#efe2d1] bg-[#fdf8f1] text-[#6b6357]"
-                    }`}>
+                    <label
+                      className={`mt-1 inline-flex items-center gap-2 rounded-md border px-3 py-2 text-xs font-semibold ${
+                        editingProfile
+                          ? "cursor-pointer border-[#e2d6c4] bg-white text-[#4b4337]"
+                          : "border-[#efe2d1] bg-[#fdf8f1] text-[#6b6357]"
+                      }`}
+                    >
                       Selecionar imagem
                       <input
                         type="file"
                         accept="image/*"
                         className="hidden"
                         disabled={!editingProfile}
-                      onChange={async (event) => {
-                        const file = event.target.files?.[0];
-                        if (!file) return;
-                        if (!userId) return;
-                        const extension = file.name.split(".").pop() ?? "jpg";
-                        const filePath = `${userId}/avatar.${extension}`;
-                        const reader = new FileReader();
-                        reader.onload = async () => {
-                          if (typeof reader.result === "string") {
-                            setProfileImageUrl(reader.result);
-                          }
-                          await supabase.storage
-                            .from("avatars")
-                            .upload(filePath, file, { upsert: true });
-                          const { data } = supabase.storage
-                            .from("avatars")
-                            .getPublicUrl(filePath);
-                          const safeName =
-                            profileName ||
-                            (userEmail !== "—"
-                              ? userEmail.split("@")[0]
-                              : "Aluno");
-                          await supabase.from("profiles").upsert({
-                            id: userId,
-                            full_name: safeName,
-                            avatar_url: data.publicUrl,
-                          });
-                          setProfileImageUrl(data.publicUrl);
-                        };
-                        reader.readAsDataURL(file);
-                      }}
+                        onChange={async (event) => {
+                          const file = event.target.files?.[0];
+                          if (!file) return;
+                          const resolvedUserId = await resolveUserId();
+                          if (!resolvedUserId) return;
+                          const extension = file.name.split(".").pop() ?? "jpg";
+                          const filePath = `${resolvedUserId}/avatar.${extension}`;
+                          setAvatarStatus("saving");
+                          const reader = new FileReader();
+                          reader.onload = async () => {
+                            if (typeof reader.result === "string") {
+                              setProfileImageUrl(reader.result);
+                            }
+                            const { error: uploadError } = await supabase.storage
+                              .from("avatars")
+                              .upload(filePath, file, { upsert: true });
+                            if (uploadError) {
+                              setAvatarStatus("error");
+                              addToast({
+                                variant: "error",
+                                title: "Não foi possível enviar a foto.",
+                                description: "Tente novamente em instantes.",
+                              });
+                              return;
+                            }
+                            const safeName =
+                              profileName ||
+                              (userEmail !== "—"
+                                ? userEmail.split("@")[0]
+                                : "Aluno");
+                            const { error: profileError } = await supabase
+                              .from("profiles")
+                              .upsert({
+                                id: resolvedUserId,
+                                full_name: safeName,
+                                avatar_url: filePath,
+                              });
+                            if (profileError) {
+                              setAvatarStatus("error");
+                              addToast({
+                                variant: "error",
+                                title: "Não foi possível salvar a foto.",
+                                description: "Tente novamente em instantes.",
+                              });
+                              return;
+                            }
+                            const resolved = await resolveAvatarUrl(filePath);
+                            if (resolved) {
+                              setProfileImageUrl(resolved);
+                            }
+                            setAvatarStatus("saved");
+                            addToast({
+                              variant: "success",
+                              title: "Foto atualizada.",
+                              description: "Seu perfil foi atualizado.",
+                            });
+                          };
+                          reader.readAsDataURL(file);
+                        }}
                     />
                     </label>
                   </div>
                 </div>
               </div>
+              <div className="mt-3 text-xs text-[#6b6357]">
+                {avatarStatus === "saving" && "Salvando foto..."}
+                {avatarStatus === "saved" && "Foto atualizada com sucesso."}
+                {avatarStatus === "error" &&
+                  "Não foi possível atualizar a foto."}
+              </div>
               <div className="mt-4 flex flex-wrap gap-3">
                 <button
-                  className="rounded-md bg-[#1f5b4b] px-4 py-2 text-xs font-semibold text-[#fffaf2]"
+                  className="rounded-md bg-[#1f5b4b] px-4 py-2 text-sm font-semibold min-h-[44px] text-[#fffaf2]"
                   onClick={handleProfileToggle}
                 >
                   {editingProfile ? "Salvar dados" : "Editar dados"}
@@ -687,22 +1061,22 @@ export default function Configuracoes() {
                   Tipo atual
                 </label>
                 <select
-                  className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-sm text-[#1f1c18] disabled:bg-[#fdf8f1] disabled:text-[#6b6357]"
+                  className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-base text-[#1f1c18] disabled:bg-[#fdf8f1] disabled:text-[#6b6357]"
                   disabled={!editingAccountType}
                   value={accountType}
                   onChange={(event) =>
                     setAccountType(event.target.value as AccountType)
                   }
                 >
-                  <option>Concurso</option>
-                  <option>Faculdade</option>
+                  <option value="Concurso">Concurso público</option>
+                  <option value="Faculdade">Vestibular/Faculdade</option>
                 </select>
               </div>
               <p className="mt-2 text-xs text-[#6b6357]">
                 Alterar o tipo impacta a lista de matérias disponíveis.
               </p>
               <button
-                className="mt-3 rounded-md border border-[#e2d6c4] bg-[#f0e6d9] px-4 py-2 text-xs font-semibold text-[#4b4337]"
+                className="mt-3 rounded-md border border-[#e2d6c4] bg-[#f0e6d9] px-4 py-2 text-sm font-semibold min-h-[44px] text-[#4b4337]"
                 onClick={handleAccountTypeToggle}
               >
                 {editingAccountType ? "Salvar tipo" : "Alterar tipo"}
@@ -730,7 +1104,7 @@ export default function Configuracoes() {
                     Modo do sistema
                   </label>
                 <select
-                  className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-sm text-[#1f1c18] disabled:bg-[#fdf8f1] disabled:text-[#6b6357]"
+                  className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-base text-[#1f1c18] disabled:bg-[#fdf8f1] disabled:text-[#6b6357]"
                   disabled={!editingPreferences}
                   value={prefMode}
                   onChange={(event) =>
@@ -749,7 +1123,7 @@ export default function Configuracoes() {
                     Idioma
                   </label>
                 <select
-                  className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-sm text-[#1f1c18] disabled:bg-[#fdf8f1] disabled:text-[#6b6357]"
+                  className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-base text-[#1f1c18] disabled:bg-[#fdf8f1] disabled:text-[#6b6357]"
                   disabled={!editingPreferences}
                   value={prefLanguage}
                   onChange={(event) =>
@@ -768,7 +1142,7 @@ export default function Configuracoes() {
                     Formato de data
                   </label>
                 <select
-                  className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-sm text-[#1f1c18] disabled:bg-[#fdf8f1] disabled:text-[#6b6357]"
+                  className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-base text-[#1f1c18] disabled:bg-[#fdf8f1] disabled:text-[#6b6357]"
                   disabled={!editingPreferences}
                   value={prefDateFormat}
                   onChange={(event) =>
@@ -784,7 +1158,7 @@ export default function Configuracoes() {
                 </div>
               </div>
               <button
-                className="mt-3 rounded-md border border-[#e2d6c4] bg-[#f0e6d9] px-4 py-2 text-xs font-semibold text-[#4b4337]"
+                className="mt-3 rounded-md border border-[#e2d6c4] bg-[#f0e6d9] px-4 py-2 text-sm font-semibold min-h-[44px] text-[#4b4337]"
                 onClick={handlePreferencesToggle}
               >
                 {editingPreferences ? "Salvar preferências" : "Ajustar preferências"}
@@ -795,7 +1169,7 @@ export default function Configuracoes() {
       ) : null}
 
       {activeTab === "materias" ? (
-        <section className="rounded-lg border border-[#e6dbc9] bg-[#fffaf2] p-6">
+        <section className="rounded-lg border border-[#e6dbc9] bg-[#fffaf2] p-4 sm:p-6">
           <div className="space-y-5">
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div>
@@ -807,16 +1181,19 @@ export default function Configuracoes() {
                 </h2>
               </div>
               <button
-                className="rounded-md bg-[#1f5b4b] px-4 py-2 text-xs font-semibold text-[#fffaf2] shadow-[0_10px_30px_-20px_rgba(31,91,75,0.7)]"
+                className="w-full rounded-md bg-[#1f5b4b] px-4 py-2 text-sm font-semibold min-h-[44px] text-[#fffaf2] shadow-[0_10px_30px_-20px_rgba(31,91,75,0.7)] sm:w-auto"
                 onClick={() => setShowMateriaModal(true)}
               >
                 Adicionar matéria
               </button>
             </div>
 
-            <div className="flex flex-wrap gap-3 text-sm text-[#4b4337]">
+            <div className="grid gap-3 text-sm text-[#4b4337] sm:grid-cols-2">
               <div className="rounded-md border border-[#efe2d1] bg-[#fdf8f1] px-4 py-3">
-                Tipo atual: {accountType}
+                Tipo atual:{" "}
+                {accountType === "Concurso"
+                  ? "Concurso público"
+                  : "Vestibular/Faculdade"}
               </div>
               <div className="rounded-md border border-[#efe2d1] bg-[#fdf8f1] px-4 py-3">
                 Total cadastradas:{" "}
@@ -824,8 +1201,8 @@ export default function Configuracoes() {
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="w-full max-w-md">
+            <div className="grid gap-3 md:grid-cols-[1fr_220px]">
+              <div className="w-full">
                 <label className="text-xs font-semibold text-[#6b6357]">
                   Buscar matéria
                 </label>
@@ -833,16 +1210,16 @@ export default function Configuracoes() {
                   type="text"
                   value={materiaSearch}
                   onChange={(event) => setMateriaSearch(event.target.value)}
-                  className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-sm text-[#1f1c18]"
+                  className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-base text-[#1f1c18]"
                   placeholder="Digite para filtrar"
                 />
               </div>
-              <div className="w-full max-w-xs">
+              <div className="w-full">
                 <label className="text-xs font-semibold text-[#6b6357]">
                   Status
                 </label>
                 <select
-                  className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-sm text-[#1f1c18]"
+                  className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-base text-[#1f1c18]"
                   value={materiaFilter}
                   onChange={(event) =>
                     setMateriaFilter(event.target.value as MateriaFilter)
@@ -863,8 +1240,39 @@ export default function Configuracoes() {
               </h3>
               <div className="mt-3 space-y-2">
                 {filteredSubjects.length === 0 ? (
-                  <div className="rounded-md border border-[#e2d6c4] bg-white px-3 py-3 text-xs text-[#6b6357]">
-                    Nenhuma matéria cadastrada para este tipo de estudo.
+                  <div className="flex flex-col gap-3 rounded-md border border-[#e2d6c4] bg-[#fbf7f2] px-3 py-3 text-xs text-[#6b6357]">
+                    <div className="flex items-center gap-3">
+                      <span className="flex h-9 w-9 items-center justify-center rounded-full border border-[#e2d6c4] bg-[#fdf8f1] text-[#4b4337]">
+                        <svg
+                          aria-hidden="true"
+                          className="h-4 w-4"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                        >
+                          <circle cx="12" cy="12" r="9" />
+                          <path d="M9 10h.01M15 10h.01" strokeLinecap="round" />
+                          <path
+                            d="M16 16c-1-1-3-1-4-1s-3 0-4 1"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+                      </span>
+                      <div>
+                        <p className="font-semibold text-[#4b4337]">
+                          Nenhuma matéria cadastrada.
+                        </p>
+                        <p className="text-xs text-[#6b6357]">
+                          Comece adicionando as matérias que você estuda.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-xs text-[#6b6357]">
+                      Passos: clique em “Adicionar matéria” e escolha as
+                      matérias do seu objetivo.
+                    </div>
                   </div>
                 ) : (
                   filteredSubjects.map((item) => (
@@ -883,11 +1291,24 @@ export default function Configuracoes() {
                       </div>
                       <div className="flex items-center gap-2">
                         {!item.isDefault ? (
-                          <button className="text-[11px] font-semibold text-[#1f5b4b]">
+                          <button
+                            className="min-h-[44px] rounded-md px-3 py-2 text-xs font-semibold text-[#1f5b4b]"
+                            onClick={() => {
+                              setMateriaBeingEdited(item);
+                              setEditMateriaName(item.label);
+                              setShowEditMateriaModal(true);
+                            }}
+                          >
                             Editar
                           </button>
                         ) : null}
-                        <button className="text-[11px] font-semibold text-[#9d4b3b]">
+                        <button
+                          className="min-h-[44px] rounded-md px-3 py-2 text-xs font-semibold text-[#9d4b3b]"
+                          onClick={() => {
+                            setMateriaToDelete(item);
+                            setShowDeleteMateriaModal(true);
+                          }}
+                        >
                           Remover
                         </button>
                       </div>
@@ -901,7 +1322,7 @@ export default function Configuracoes() {
       ) : null}
 
       {activeTab === "templates" ? (
-        <section className="rounded-lg border border-[#e6dbc9] bg-[#fffaf2] p-6">
+        <section className="rounded-lg border border-[#e6dbc9] bg-[#fffaf2] p-4 sm:p-6">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
               <p className="text-xs font-semibold uppercase text-[#6b6357]">
@@ -912,7 +1333,7 @@ export default function Configuracoes() {
               </h2>
             </div>
             <button
-              className="cursor-pointer rounded-md bg-[#1f5b4b] px-4 py-2 text-xs font-semibold text-[#fffaf2] shadow-[0_10px_30px_-20px_rgba(31,91,75,0.7)]"
+              className="cursor-pointer rounded-md bg-[#1f5b4b] px-4 py-2 text-sm font-semibold min-h-[44px] text-[#fffaf2] shadow-[0_10px_30px_-20px_rgba(31,91,75,0.7)]"
               onClick={() => setShowTemplateModal(true)}
             >
               Criar template
@@ -920,7 +1341,7 @@ export default function Configuracoes() {
           </div>
 
           <div className="mt-6 grid gap-4 md:grid-cols-3">
-            {templates.map((template) => {
+            {orderedTemplates.map((template) => {
               const isActive = template.id === activeTemplateId;
               return (
                 <div
@@ -954,7 +1375,7 @@ export default function Configuracoes() {
                       </span>
                     ) : (
                       <button
-                        className="cursor-pointer text-xs font-semibold text-[#1f5b4b]"
+                        className="min-h-[44px] rounded-md px-3 py-2 text-xs font-semibold text-[#1f5b4b]"
                         onClick={() => {
                           setTemplateToActivate(template);
                           setShowActivateModal(true);
@@ -966,7 +1387,7 @@ export default function Configuracoes() {
                     {template.source === "Personalizado" ? (
                       <>
                         <button
-                          className="cursor-pointer text-xs font-semibold text-[#4b4337]"
+                          className="min-h-[44px] rounded-md px-3 py-2 text-xs font-semibold text-[#4b4337]"
                           onClick={() => {
                             setTemplateMode("edit");
                             setTemplateBeingEdited(template.id);
@@ -978,12 +1399,12 @@ export default function Configuracoes() {
                         >
                           Editar
                         </button>
-                        <button className="cursor-pointer text-xs font-semibold text-[#9d4b3b]">
+                        <button className="min-h-[44px] rounded-md px-3 py-2 text-xs font-semibold text-[#9d4b3b]">
                           Excluir
                         </button>
                       </>
                     ) : (
-                      <button className="cursor-pointer text-xs font-semibold text-[#6b6357]">
+                      <button className="min-h-[44px] rounded-md px-3 py-2 text-xs font-semibold text-[#6b6357]">
                         Duplicar
                       </button>
                     )}
@@ -1008,9 +1429,39 @@ export default function Configuracoes() {
                   </span>
                 ))
               ) : (
-                <span className="text-[#6b6357]">
-                  Nenhum template ativo definido.
-                </span>
+                <div className="flex flex-col gap-3 rounded-md border border-[#e2d6c4] bg-[#fbf7f2] px-3 py-3 text-xs text-[#6b6357]">
+                  <div className="flex items-center gap-3">
+                    <span className="flex h-8 w-8 items-center justify-center rounded-full border border-[#e2d6c4] bg-[#fdf8f1] text-[#4b4337]">
+                      <svg
+                        aria-hidden="true"
+                        className="h-4 w-4"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                      >
+                        <circle cx="12" cy="12" r="9" />
+                        <path d="M9 10h.01M15 10h.01" strokeLinecap="round" />
+                        <path
+                          d="M16 16c-1-1-3-1-4-1s-3 0-4 1"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    </span>
+                    <div>
+                      <p className="font-semibold text-[#4b4337]">
+                        Nenhum template ativo.
+                      </p>
+                      <p className="text-xs text-[#6b6357]">
+                        Ative um template para ver a cadência aqui.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-xs text-[#6b6357]">
+                    Passos: clique em “Ativar” em um template disponível.
+                  </div>
+                </div>
               )}
             </div>
           </div>
@@ -1018,7 +1469,7 @@ export default function Configuracoes() {
       ) : null}
 
       {activeTab === "notificacoes" ? (
-        <section className="rounded-lg border border-[#e6dbc9] bg-[#fffaf2] p-6">
+        <section className="rounded-lg border border-[#e6dbc9] bg-[#fffaf2] p-4 sm:p-6">
           <div className="space-y-8">
             <div>
               <div className="flex items-center gap-2 text-sm font-semibold text-[#4b4337]">
@@ -1046,7 +1497,7 @@ export default function Configuracoes() {
                     E-mail
                   </label>
                   <select
-                    className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-sm text-[#1f1c18] disabled:bg-[#fdf8f1] disabled:text-[#6b6357]"
+                    className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-base text-[#1f1c18] disabled:bg-[#fdf8f1] disabled:text-[#6b6357]"
                     disabled={!editingNotifications}
                     value={notifyEmail ? "Ativo" : "Inativo"}
                     onChange={(event) =>
@@ -1062,7 +1513,7 @@ export default function Configuracoes() {
                     Aplicativo
                   </label>
                   <select
-                    className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-sm text-[#1f1c18] disabled:bg-[#fdf8f1] disabled:text-[#6b6357]"
+                    className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-base text-[#1f1c18] disabled:bg-[#fdf8f1] disabled:text-[#6b6357]"
                     disabled={!editingNotifications}
                     value={notifyApp ? "Ativo" : "Inativo"}
                     onChange={(event) =>
@@ -1097,7 +1548,7 @@ export default function Configuracoes() {
                     Lembrete diário
                   </label>
                   <select
-                    className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-sm text-[#1f1c18] disabled:bg-[#fdf8f1] disabled:text-[#6b6357]"
+                    className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-base text-[#1f1c18] disabled:bg-[#fdf8f1] disabled:text-[#6b6357]"
                     disabled={!editingNotifications}
                     value={notifyDaily ? "Ativo" : "Inativo"}
                     onChange={(event) =>
@@ -1117,7 +1568,7 @@ export default function Configuracoes() {
                     value={notifyDailyTime}
                     onChange={(event) => setNotifyDailyTime(event.target.value)}
                     disabled={!editingNotifications}
-                    className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-sm text-[#1f1c18] disabled:bg-[#fdf8f1] disabled:text-[#6b6357]"
+                    className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-base text-[#1f1c18] disabled:bg-[#fdf8f1] disabled:text-[#6b6357]"
                   />
                 </div>
                 <div className="w-full max-w-sm">
@@ -1125,7 +1576,7 @@ export default function Configuracoes() {
                     Resumo semanal
                   </label>
                   <select
-                    className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-sm text-[#1f1c18] disabled:bg-[#fdf8f1] disabled:text-[#6b6357]"
+                    className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-base text-[#1f1c18] disabled:bg-[#fdf8f1] disabled:text-[#6b6357]"
                     disabled={!editingNotifications}
                     value={notifyWeekly ? "Ativo" : "Inativo"}
                     onChange={(event) =>
@@ -1141,7 +1592,7 @@ export default function Configuracoes() {
                     Dia do resumo
                   </label>
                   <select
-                    className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-sm text-[#1f1c18] disabled:bg-[#fdf8f1] disabled:text-[#6b6357]"
+                    className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-base text-[#1f1c18] disabled:bg-[#fdf8f1] disabled:text-[#6b6357]"
                     disabled={!editingNotifications}
                     value={notifyWeeklyDay}
                     onChange={(event) =>
@@ -1164,7 +1615,7 @@ export default function Configuracoes() {
                     value={notifyWeeklyTime}
                     onChange={(event) => setNotifyWeeklyTime(event.target.value)}
                     disabled={!editingNotifications}
-                    className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-sm text-[#1f1c18] disabled:bg-[#fdf8f1] disabled:text-[#6b6357]"
+                    className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-base text-[#1f1c18] disabled:bg-[#fdf8f1] disabled:text-[#6b6357]"
                   />
                 </div>
               </div>
@@ -1192,7 +1643,7 @@ export default function Configuracoes() {
                     Revisões atrasadas no topo
                   </label>
                   <select
-                    className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-sm text-[#1f1c18] disabled:bg-[#fdf8f1] disabled:text-[#6b6357]"
+                    className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-base text-[#1f1c18] disabled:bg-[#fdf8f1] disabled:text-[#6b6357]"
                     disabled={!editingNotifications}
                     value={notifyOverdueTop ? "Ativo" : "Inativo"}
                     onChange={(event) =>
@@ -1208,7 +1659,7 @@ export default function Configuracoes() {
                     Nível de urgência
                   </label>
                   <select
-                    className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-sm text-[#1f1c18] disabled:bg-[#fdf8f1] disabled:text-[#6b6357]"
+                    className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-base text-[#1f1c18] disabled:bg-[#fdf8f1] disabled:text-[#6b6357]"
                     disabled={!editingNotifications}
                     value={notifyPriority}
                     onChange={(event) =>
@@ -1251,7 +1702,7 @@ export default function Configuracoes() {
 
             <div className="flex flex-wrap gap-3">
               <button
-                className="rounded-md bg-[#1f5b4b] px-4 py-2 text-xs font-semibold text-[#fffaf2]"
+                className="rounded-md bg-[#1f5b4b] px-4 py-2 text-sm font-semibold min-h-[44px] text-[#fffaf2]"
                 onClick={handleNotificationsToggle}
               >
                 {editingNotifications
@@ -1264,7 +1715,7 @@ export default function Configuracoes() {
       ) : null}
 
       {activeTab === "seguranca" ? (
-        <section className="rounded-lg border border-[#e6dbc9] bg-[#fffaf2] p-6">
+        <section className="rounded-lg border border-[#e6dbc9] bg-[#fffaf2] p-4 sm:p-6">
           <div className="space-y-8">
             <div>
               <div className="flex items-center gap-2 text-sm font-semibold text-[#4b4337]">
@@ -1289,7 +1740,7 @@ export default function Configuracoes() {
                     type="password"
                     value={editingSecurity ? "" : "********"}
                     disabled={!editingSecurity}
-                    className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-sm text-[#1f1c18] disabled:bg-[#fdf8f1] disabled:text-[#6b6357]"
+                    className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-base text-[#1f1c18] disabled:bg-[#fdf8f1] disabled:text-[#6b6357]"
                     placeholder={editingSecurity ? "Digite sua senha atual" : ""}
                   />
                   <button
@@ -1308,7 +1759,7 @@ export default function Configuracoes() {
                     value={newPassword}
                     onChange={(event) => setNewPassword(event.target.value)}
                     disabled={!editingSecurity}
-                    className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-sm text-[#1f1c18] disabled:bg-[#fdf8f1] disabled:text-[#6b6357]"
+                    className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-base text-[#1f1c18] disabled:bg-[#fdf8f1] disabled:text-[#6b6357]"
                   />
                 </div>
                 <div className="w-full max-w-sm">
@@ -1320,13 +1771,13 @@ export default function Configuracoes() {
                     value={confirmPassword}
                     onChange={(event) => setConfirmPassword(event.target.value)}
                     disabled={!editingSecurity}
-                    className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-sm text-[#1f1c18] disabled:bg-[#fdf8f1] disabled:text-[#6b6357]"
+                    className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-base text-[#1f1c18] disabled:bg-[#fdf8f1] disabled:text-[#6b6357]"
                   />
                 </div>
               </div>
               <div className="mt-4 flex flex-wrap gap-3">
                 <button
-                  className="rounded-md bg-[#1f5b4b] px-4 py-2 text-xs font-semibold text-[#fffaf2]"
+                  className="rounded-md bg-[#1f5b4b] px-4 py-2 text-sm font-semibold min-h-[44px] text-[#fffaf2]"
                   onClick={() => setEditingSecurity((prev) => !prev)}
                 >
                   {editingSecurity ? "Salvar segurança" : "Editar segurança"}
@@ -1359,7 +1810,7 @@ export default function Configuracoes() {
                 </div>
               </div>
               <button
-                className="mt-4 rounded-md border border-[#e2d6c4] bg-[#f0e6d9] px-4 py-2 text-xs font-semibold text-[#4b4337]"
+                className="mt-4 rounded-md border border-[#e2d6c4] bg-[#f0e6d9] px-4 py-2 text-sm font-semibold min-h-[44px] text-[#4b4337]"
                 disabled={!editingSecurity}
               >
                 Encerrar todas as sessões
@@ -1386,7 +1837,7 @@ export default function Configuracoes() {
                     Autenticação em duas etapas
                   </label>
                   <select
-                    className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-sm text-[#1f1c18] disabled:bg-[#fdf8f1] disabled:text-[#6b6357]"
+                    className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-base text-[#1f1c18] disabled:bg-[#fdf8f1] disabled:text-[#6b6357]"
                     disabled={!editingSecurity}
                     value={editingSecurity ? "Ativo" : "Inativo"}
                   >
@@ -1402,12 +1853,12 @@ export default function Configuracoes() {
                     type="email"
                     value="recuperacao@revisame.com"
                     disabled={!editingSecurity}
-                    className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-sm text-[#1f1c18] disabled:bg-[#fdf8f1] disabled:text-[#6b6357]"
+                    className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-base text-[#1f1c18] disabled:bg-[#fdf8f1] disabled:text-[#6b6357]"
                   />
                 </div>
               </div>
               <button
-                className="mt-4 rounded-md bg-[#1f5b4b] px-4 py-2 text-xs font-semibold text-[#fffaf2]"
+                className="mt-4 rounded-md bg-[#1f5b4b] px-4 py-2 text-sm font-semibold min-h-[44px] text-[#fffaf2]"
                 onClick={() => setEditingSecurity((prev) => !prev)}
               >
                 {editingSecurity ? "Salvar segurança" : "Editar segurança"}
@@ -1418,7 +1869,7 @@ export default function Configuracoes() {
       ) : null}
 
       {activeTab === "privacidade" ? (
-        <section className="rounded-lg border border-[#e6dbc9] bg-[#fffaf2] p-6">
+        <section className="rounded-lg border border-[#e6dbc9] bg-[#fffaf2] p-4 sm:p-6">
           <div className="space-y-4 text-sm text-[#4b4337]">
             <div className="flex items-center gap-2 text-sm font-semibold text-[#4b4337]">
               <svg
@@ -1455,13 +1906,13 @@ export default function Configuracoes() {
             </label>
             <div className="flex flex-wrap gap-3">
               <button
-                className="rounded-md bg-[#9d4b3b] px-4 py-2 text-xs font-semibold text-[#fffaf2]"
+                className="rounded-md bg-[#9d4b3b] px-4 py-2 text-sm font-semibold min-h-[44px] text-[#fffaf2]"
                 onClick={() => setEditingPrivacy((prev) => !prev)}
               >
                 {editingPrivacy ? "Salvar privacidade" : "Editar privacidade"}
               </button>
               <button
-                className="rounded-md border border-[#e2d6c4] bg-[#f0e6d9] px-4 py-2 text-xs font-semibold text-[#4b4337]"
+                className="rounded-md border border-[#e2d6c4] bg-[#f0e6d9] px-4 py-2 text-sm font-semibold min-h-[44px] text-[#4b4337]"
                 disabled={!editingPrivacy || (!confirmExport && !confirmDelete)}
               >
                 Aplicar ajustes
@@ -1472,7 +1923,7 @@ export default function Configuracoes() {
       ) : null}
 
       {activeTab === "planos" ? (
-        <section className="rounded-lg border border-[#e6dbc9] bg-[#fffaf2] p-6">
+        <section className="rounded-lg border border-[#e6dbc9] bg-[#fffaf2] p-4 sm:p-6">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
               <p className="text-xs font-semibold uppercase text-[#6b6357]">
@@ -1549,7 +2000,7 @@ export default function Configuracoes() {
                       </span>
                     ) : (
                       <button
-                        className="rounded-md bg-[#1f5b4b] px-4 py-2 text-xs font-semibold text-[#fffaf2]"
+                        className="rounded-md bg-[#1f5b4b] px-4 py-2 text-sm font-semibold min-h-[44px] text-[#fffaf2]"
                         onClick={() =>
                           handlePlanChange(plan.name as "Gratuito" | "Premium")
                         }
@@ -1567,7 +2018,7 @@ export default function Configuracoes() {
 
       {showMateriaModal ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-md rounded-lg bg-[#fffaf2] p-6 shadow-[0_24px_60px_-40px_rgba(31,91,75,0.6)]">
+          <div className="w-full max-w-md rounded-lg bg-[#fffaf2] p-5 shadow-[0_24px_60px_-40px_rgba(31,91,75,0.6)] sm:p-6 max-h-[85vh] overflow-y-auto">
             <h3 className="text-lg font-semibold text-[#1f1c18]">
               Adicionar matéria
             </h3>
@@ -1580,15 +2031,15 @@ export default function Configuracoes() {
               </label>
               <input
                 type="text"
-                className="mt-2 h-11 w-full rounded-md border border-[#e2d6c4] bg-white px-3 text-sm text-[#1f1c18]"
+                className="mt-2 h-11 w-full rounded-md border border-[#e2d6c4] bg-white px-3 text-base text-[#1f1c18]"
                 value={novaMateria}
                 onChange={(event) => setNovaMateria(event.target.value)}
                 placeholder="Ex: Direito Tributário"
               />
             </div>
-            <div className="mt-6 flex justify-end gap-2">
+            <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-end">
               <button
-                className="rounded-md border border-[#e2d6c4] bg-[#f0e6d9] px-4 py-2 text-xs font-semibold text-[#4b4337]"
+                className="rounded-md border border-[#e2d6c4] bg-[#f0e6d9] px-4 py-2 text-sm font-semibold min-h-[44px] text-[#4b4337]"
                 onClick={() => {
                   setNovaMateria("");
                   setShowMateriaModal(false);
@@ -1597,7 +2048,7 @@ export default function Configuracoes() {
                 Cancelar
               </button>
               <button
-                className="rounded-md bg-[#1f5b4b] px-4 py-2 text-xs font-semibold text-[#fffaf2] disabled:cursor-not-allowed disabled:bg-[#9fbfb5]"
+                className="rounded-md bg-[#1f5b4b] px-4 py-2 text-sm font-semibold min-h-[44px] text-[#fffaf2] disabled:cursor-not-allowed disabled:bg-[#9fbfb5]"
                 disabled={!novaMateria.trim()}
                 onClick={async () => {
                   if (!userId) return;
@@ -1616,13 +2067,29 @@ export default function Configuracoes() {
                     .single();
 
                   if (error || !createdSubject) {
+                    addToast({
+                      variant: "error",
+                      title: "Não foi possível cadastrar a matéria.",
+                      description: "Tente novamente em instantes.",
+                    });
                     return;
                   }
 
-                  await supabase.from("user_subjects").insert({
-                    user_id: userId,
-                    subject_id: createdSubject.id,
-                  });
+                  const { error: linkError } = await supabase
+                    .from("user_subjects")
+                    .insert({
+                      user_id: userId,
+                      subject_id: createdSubject.id,
+                    });
+
+                  if (linkError) {
+                    addToast({
+                      variant: "error",
+                      title: "Matéria criada, mas não vinculada.",
+                      description: "Tente salvar novamente.",
+                    });
+                    return;
+                  }
 
                   setSubjects((prev) => [
                     ...prev,
@@ -1635,6 +2102,11 @@ export default function Configuracoes() {
                   ]);
                   setNovaMateria("");
                   setShowMateriaModal(false);
+                  addToast({
+                    variant: "success",
+                    title: "Matéria cadastrada.",
+                    description: "Já disponível no sistema.",
+                  });
                 }}
               >
                 Salvar matéria
@@ -1644,9 +2116,180 @@ export default function Configuracoes() {
         </div>
       ) : null}
 
+      {showEditMateriaModal && materiaBeingEdited ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-lg bg-[#fffaf2] p-5 shadow-[0_24px_60px_-40px_rgba(31,91,75,0.6)] sm:p-6 max-h-[85vh] overflow-y-auto">
+            <h3 className="text-lg font-semibold text-[#1f1c18]">
+              Editar matéria
+            </h3>
+            <p className="mt-2 text-sm text-[#5f574a]">
+              Atualize o nome da matéria para manter seu banco organizado.
+            </p>
+            <div className="mt-4">
+              <label className="text-xs font-semibold text-[#6b6357]">
+                Nome da matéria
+              </label>
+              <input
+                type="text"
+                className="mt-2 h-11 w-full rounded-md border border-[#e2d6c4] bg-white px-3 text-base text-[#1f1c18]"
+                value={editMateriaName}
+                onChange={(event) => setEditMateriaName(event.target.value)}
+                placeholder="Ex: Direito Constitucional"
+              />
+            </div>
+            <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-end">
+              <button
+                className="rounded-md border border-[#e2d6c4] bg-[#f0e6d9] px-4 py-2 text-sm font-semibold min-h-[44px] text-[#4b4337]"
+                onClick={() => {
+                  setShowEditMateriaModal(false);
+                  setMateriaBeingEdited(null);
+                  setEditMateriaName("");
+                }}
+              >
+                Cancelar
+              </button>
+              <button
+                className="rounded-md bg-[#1f5b4b] px-4 py-2 text-sm font-semibold min-h-[44px] text-[#fffaf2] disabled:cursor-not-allowed disabled:bg-[#9fbfb5]"
+                disabled={!editMateriaName.trim()}
+                onClick={async () => {
+                  if (!materiaBeingEdited) return;
+                  if (materiaBeingEdited.isDefault) {
+                    addToast({
+                      variant: "error",
+                      title: "Matéria padrão não pode ser editada.",
+                      description: "Crie uma personalizada para editar.",
+                    });
+                    return;
+                  }
+
+                  const trimmed = editMateriaName.trim();
+                  if (!trimmed) return;
+
+                  const { data: updated, error } = await supabase
+                    .from("subjects")
+                    .update({ name: trimmed })
+                    .eq("id", materiaBeingEdited.id)
+                    .select("id,name")
+                    .single();
+
+                  if (error || !updated) {
+                    addToast({
+                      variant: "error",
+                      title: "Não foi possível atualizar a matéria.",
+                      description: "Tente novamente em instantes.",
+                    });
+                    return;
+                  }
+
+                  setSubjects((prev) =>
+                    prev.map((item) =>
+                      item.id === updated.id
+                        ? { ...item, label: updated.name }
+                        : item
+                    )
+                  );
+                  setShowEditMateriaModal(false);
+                  setMateriaBeingEdited(null);
+                  setEditMateriaName("");
+                  addToast({
+                    variant: "success",
+                    title: "Matéria atualizada.",
+                    description: "O novo nome já está salvo.",
+                  });
+                }}
+              >
+                Salvar alterações
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {showDeleteMateriaModal && materiaToDelete ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-lg bg-[#fffaf2] p-5 shadow-[0_24px_60px_-40px_rgba(31,91,75,0.6)] sm:p-6 max-h-[85vh] overflow-y-auto">
+            <h3 className="text-lg font-semibold text-[#1f1c18]">
+              Remover matéria
+            </h3>
+            <p className="mt-2 text-sm text-[#5f574a]">
+              Tem certeza que deseja remover{" "}
+              <span className="font-semibold text-[#1f5b4b]">
+                {materiaToDelete.label}
+              </span>{" "}
+              da sua lista?
+            </p>
+            <div className="mt-4 rounded-md border border-[#efe2d1] bg-[#fdf8f1] px-4 py-3 text-sm text-[#4b4337]">
+              A matéria será removida apenas do seu perfil. Você pode cadastrar
+              novamente quando precisar.
+            </div>
+            <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-end">
+              <button
+                className="rounded-md border border-[#e2d6c4] bg-[#f0e6d9] px-4 py-2 text-sm font-semibold min-h-[44px] text-[#4b4337]"
+                onClick={() => {
+                  setShowDeleteMateriaModal(false);
+                  setMateriaToDelete(null);
+                }}
+              >
+                Cancelar
+              </button>
+              <button
+                className="rounded-md bg-[#9d4b3b] px-4 py-2 text-sm font-semibold min-h-[44px] text-[#fffaf2]"
+                onClick={async () => {
+                  if (!materiaToDelete) return;
+                  if (materiaToDelete.isDefault) {
+                    addToast({
+                      variant: "error",
+                      title: "Matéria padrão não pode ser removida.",
+                      description: "Crie uma personalizada para editar.",
+                    });
+                    return;
+                  }
+                  if (!userId) {
+                    addToast({
+                      variant: "error",
+                      title: "Você precisa estar autenticado.",
+                      description: "Faça login para remover matérias.",
+                    });
+                    return;
+                  }
+
+                  const { error } = await supabase
+                    .from("user_subjects")
+                    .delete()
+                    .eq("user_id", userId)
+                    .eq("subject_id", materiaToDelete.id);
+
+                  if (error) {
+                    addToast({
+                      variant: "error",
+                      title: "Não foi possível remover a matéria.",
+                      description: "Tente novamente em instantes.",
+                    });
+                    return;
+                  }
+
+                  setSubjects((prev) =>
+                    prev.filter((item) => item.id !== materiaToDelete.id)
+                  );
+                  setShowDeleteMateriaModal(false);
+                  setMateriaToDelete(null);
+                  addToast({
+                    variant: "success",
+                    title: "Matéria removida.",
+                    description: "Ela não aparece mais na sua lista.",
+                  });
+                }}
+              >
+                Confirmar remoção
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {showTemplateModal ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-md rounded-lg bg-[#fffaf2] p-6 shadow-[0_24px_60px_-40px_rgba(31,91,75,0.6)]">
+          <div className="w-full max-w-md rounded-lg bg-[#fffaf2] p-5 shadow-[0_24px_60px_-40px_rgba(31,91,75,0.6)] sm:p-6 max-h-[85vh] overflow-y-auto">
             <h3 className="text-lg font-semibold text-[#1f1c18]">
               {templateMode === "edit" ? "Editar template" : "Criar template"}
             </h3>
@@ -1662,7 +2305,7 @@ export default function Configuracoes() {
                   type="text"
                   value={templateName}
                   onChange={(event) => setTemplateName(event.target.value)}
-                  className="mt-2 h-11 w-full rounded-md border border-[#e2d6c4] bg-white px-3 text-sm text-[#1f1c18]"
+                  className="mt-2 h-11 w-full rounded-md border border-[#e2d6c4] bg-white px-3 text-base text-[#1f1c18]"
                   placeholder="Ex: Revisão rápida"
                 />
               </div>
@@ -1676,7 +2319,7 @@ export default function Configuracoes() {
                     min={1}
                     value={cadenceInput}
                     onChange={(event) => setCadenceInput(event.target.value)}
-                    className="h-11 w-full rounded-md border border-[#e2d6c4] bg-white px-3 text-sm text-[#1f1c18]"
+                    className="h-11 w-full rounded-md border border-[#e2d6c4] bg-white px-3 text-base text-[#1f1c18]"
                     placeholder="Adicionar dias"
                   />
                   <button
@@ -1717,9 +2360,9 @@ export default function Configuracoes() {
                 Sequência: {templateCadence.map((step) => `${step}d`).join(", ")}
               </div>
             </div>
-            <div className="mt-6 flex justify-end gap-2">
+            <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-end">
               <button
-                className="cursor-pointer rounded-md border border-[#e2d6c4] bg-[#f0e6d9] px-4 py-2 text-xs font-semibold text-[#4b4337]"
+                className="cursor-pointer rounded-md border border-[#e2d6c4] bg-[#f0e6d9] px-4 py-2 text-sm font-semibold min-h-[44px] text-[#4b4337]"
                 onClick={() => {
                   setShowTemplateModal(false);
                   setTemplateName("");
@@ -1732,7 +2375,7 @@ export default function Configuracoes() {
                 Cancelar
               </button>
               <button
-                className="cursor-pointer rounded-md bg-[#1f5b4b] px-4 py-2 text-xs font-semibold text-[#fffaf2] disabled:cursor-not-allowed disabled:bg-[#9fbfb5]"
+                className="cursor-pointer rounded-md bg-[#1f5b4b] px-4 py-2 text-sm font-semibold min-h-[44px] text-[#fffaf2] disabled:cursor-not-allowed disabled:bg-[#9fbfb5]"
                 disabled={!templateName.trim() || templateCadence.length === 0}
                 onClick={async () => {
                   if (!userId) return;
@@ -1740,7 +2383,7 @@ export default function Configuracoes() {
                   if (!trimmed) return;
 
                   if (templateMode === "edit" && templateBeingEdited) {
-                    const { data: updated } = await supabase
+                    const { data: updated, error: updateError } = await supabase
                       .from("templates")
                       .update({
                         name: trimmed,
@@ -1750,14 +2393,23 @@ export default function Configuracoes() {
                       .select("id,name,cadence_days,is_default,owner_user_id")
                       .single();
 
-                    if (updated) {
-                      const cadenceDays = (updated.cadence_days ??
-                        []) as number[];
-                      const cadenceLabel = cadenceDays
-                        .map((day) => `${day}d`)
-                        .join(", ");
-                      setTemplates((prev) =>
-                        prev.map((item) =>
+                    if (updateError || !updated) {
+                      addToast({
+                        variant: "error",
+                        title: "Não foi possível salvar o template.",
+                        description: "Tente novamente em instantes.",
+                      });
+                      return;
+                    }
+
+                    const cadenceDays = (updated.cadence_days ??
+                      []) as number[];
+                    const cadenceLabel = cadenceDays
+                      .map((day) => `${day}d`)
+                      .join(", ");
+                  setTemplates((prev) =>
+                      prev
+                        .map((item) =>
                           item.id === updated.id
                             ? {
                                 ...item,
@@ -1773,39 +2425,63 @@ export default function Configuracoes() {
                               }
                             : item
                         )
-                      );
-                    }
+                        .sort((a, b) => {
+                          if (a.id === activeTemplateId) return -1;
+                          if (b.id === activeTemplateId) return 1;
+                          return a.title.localeCompare(b.title);
+                        })
+                    );
+                    addToast({
+                      variant: "success",
+                      title: "Template atualizado.",
+                      description: "As mudanças foram salvas.",
+                    });
                   } else {
-                    const { data: created } = await supabase
+                    const { data: created, error: createError } = await supabase
                       .from("templates")
                       .insert({
                         name: trimmed,
                         cadence_days: templateCadence,
-                        study_type: accountType,
                         is_default: false,
                         owner_user_id: userId,
                       })
                       .select("id,name,cadence_days,is_default,owner_user_id")
                       .single();
 
-                    if (created) {
-                      const createdCadence = (created.cadence_days ??
-                        []) as number[];
-                      const createdLabel = createdCadence
-                        .map((day: number) => `${day}d`)
-                        .join(", ");
-                      setTemplates((prev) => [
-                        ...prev,
-                        {
-                          id: created.id,
-                          title: created.name,
-                          cadence: createdLabel,
-                          detail: "Template personalizado.",
-                          source: "Personalizado",
-                          steps: createdCadence,
-                        },
-                      ]);
+                    if (createError || !created) {
+                      addToast({
+                        variant: "error",
+                        title: "Não foi possível criar o template.",
+                        description: "Tente novamente em instantes.",
+                      });
+                      return;
                     }
+
+                    const createdCadence = (created.cadence_days ??
+                      []) as number[];
+                    const createdLabel = createdCadence
+                      .map((day: number) => `${day}d`)
+                      .join(", ");
+                    setTemplates((prev) => [
+                      ...prev,
+                      {
+                        id: created.id,
+                        title: created.name,
+                        cadence: createdLabel,
+                        detail: "Template personalizado.",
+                        source: "Personalizado",
+                        steps: createdCadence,
+                      },
+                    ].sort((a, b) => {
+                      if (a.id === activeTemplateId) return -1;
+                      if (b.id === activeTemplateId) return 1;
+                      return a.title.localeCompare(b.title);
+                    }));
+                    addToast({
+                      variant: "success",
+                      title: "Template criado.",
+                      description: "Já disponível para ativação.",
+                    });
                   }
 
                   setShowTemplateModal(false);
@@ -1827,7 +2503,7 @@ export default function Configuracoes() {
 
       {showActivateModal && templateToActivate ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-md rounded-lg bg-[#fffaf2] p-6 shadow-[0_24px_60px_-40px_rgba(31,91,75,0.6)]">
+          <div className="w-full max-w-md rounded-lg bg-[#fffaf2] p-5 shadow-[0_24px_60px_-40px_rgba(31,91,75,0.6)] sm:p-6 max-h-[85vh] overflow-y-auto">
             <h3 className="text-lg font-semibold text-[#1f1c18]">
               Ativar template
             </h3>
@@ -1842,9 +2518,9 @@ export default function Configuracoes() {
               O novo template será usado nas próximas revisões. As revisões
               anteriores seguirão o template usado no momento do estudo.
             </div>
-            <div className="mt-6 flex justify-end gap-2">
+            <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-end">
               <button
-                className="cursor-pointer rounded-md border border-[#e2d6c4] bg-[#f0e6d9] px-4 py-2 text-xs font-semibold text-[#4b4337]"
+                className="cursor-pointer rounded-md border border-[#e2d6c4] bg-[#f0e6d9] px-4 py-2 text-sm font-semibold min-h-[44px] text-[#4b4337]"
                 onClick={() => {
                   setShowActivateModal(false);
                   setTemplateToActivate(null);
@@ -1853,16 +2529,67 @@ export default function Configuracoes() {
                 Cancelar
               </button>
               <button
-                className="cursor-pointer rounded-md bg-[#1f5b4b] px-4 py-2 text-xs font-semibold text-[#fffaf2]"
-                onClick={() => {
-                  if (!userId) return;
+                className="cursor-pointer rounded-md bg-[#1f5b4b] px-4 py-2 text-sm font-semibold min-h-[44px] text-[#fffaf2]"
+                onClick={async () => {
+                  const resolvedUserId = await resolveUserId();
+                  if (!resolvedUserId) return;
+                  const { data: updatedProfile, error: updateError } =
+                    await supabase
+                      .from("profiles")
+                      .update({ active_template_id: templateToActivate.id })
+                      .eq("id", resolvedUserId)
+                      .select("id")
+                      .maybeSingle();
+
+                  if (updateError) {
+                    console.error(updateError);
+                    addToast({
+                      variant: "error",
+                      title: "Não foi possível ativar o template.",
+                      description: "Tente novamente em instantes.",
+                    });
+                    return;
+                  }
+
+                  if (!updatedProfile) {
+                    const safeName =
+                      profileName ||
+                      (userEmail !== "—"
+                        ? userEmail.split("@")[0]
+                        : "Aluno");
+                    const { error: insertError } = await supabase
+                      .from("profiles")
+                      .upsert({
+                        id: resolvedUserId,
+                        full_name: safeName,
+                        active_template_id: templateToActivate.id,
+                      });
+                    if (insertError) {
+                      console.error(insertError);
+                      addToast({
+                        variant: "error",
+                        title: "Não foi possível ativar o template.",
+                        description: "Tente novamente em instantes.",
+                      });
+                      return;
+                    }
+                  }
+
                   setActiveTemplateId(templateToActivate.id);
-                  supabase.from("profiles").upsert({
-                    id: userId,
-                    active_template_id: templateToActivate.id,
-                  });
+                  setTemplates((prev) =>
+                    [...prev].sort((a, b) => {
+                      if (a.id === templateToActivate.id) return -1;
+                      if (b.id === templateToActivate.id) return 1;
+                      return a.title.localeCompare(b.title);
+                    })
+                  );
                   setShowActivateModal(false);
                   setTemplateToActivate(null);
+                  addToast({
+                    variant: "success",
+                    title: "Template ativado.",
+                    description: "Passa a valer para novos estudos.",
+                  });
                 }}
               >
                 Confirmar ativação
@@ -1874,7 +2601,7 @@ export default function Configuracoes() {
 
       {showForgotModal ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-md rounded-lg bg-[#fffaf2] p-6 shadow-[0_24px_60px_-40px_rgba(31,91,75,0.6)]">
+          <div className="w-full max-w-md rounded-lg bg-[#fffaf2] p-5 shadow-[0_24px_60px_-40px_rgba(31,91,75,0.6)] sm:p-6 max-h-[85vh] overflow-y-auto">
             <h3 className="text-lg font-semibold text-[#1f1c18]">
               Recuperar senha
             </h3>
@@ -1885,15 +2612,15 @@ export default function Configuracoes() {
             <div className="mt-4 rounded-md border border-[#efe2d1] bg-[#fdf8f1] px-4 py-3 text-sm text-[#4b4337]">
               E-mail: {userEmail}
             </div>
-            <div className="mt-6 flex justify-end gap-2">
+            <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-end">
               <button
-                className="rounded-md border border-[#e2d6c4] bg-[#f0e6d9] px-4 py-2 text-xs font-semibold text-[#4b4337]"
+                className="rounded-md border border-[#e2d6c4] bg-[#f0e6d9] px-4 py-2 text-sm font-semibold min-h-[44px] text-[#4b4337]"
                 onClick={() => setShowForgotModal(false)}
               >
                 Cancelar
               </button>
               <button
-                className="rounded-md bg-[#1f5b4b] px-4 py-2 text-xs font-semibold text-[#fffaf2]"
+                className="rounded-md bg-[#1f5b4b] px-4 py-2 text-sm font-semibold min-h-[44px] text-[#fffaf2]"
                 onClick={() => setShowForgotModal(false)}
               >
                 Enviar link

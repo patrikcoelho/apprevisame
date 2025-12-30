@@ -14,12 +14,9 @@ values
   ('Estatística', 'Faculdade', true)
 on conflict do nothing;
 
-insert into templates (name, cadence_days, study_type, is_default)
+insert into templates (name, cadence_days, is_default)
 values
-  ('Essencial', '{1,7,15,30}', 'Concurso', true),
-  ('Intensivo', '{1,3,7,14,21}', 'Concurso', true),
-  ('Longo prazo', '{2,10,30,60,120}', 'Concurso', true),
-  ('Essencial', '{1,7,15,30}', 'Faculdade', true),
-  ('Intensivo', '{1,3,7,14,21}', 'Faculdade', true),
-  ('Longo prazo', '{2,10,30,60,120}', 'Faculdade', true)
+  ('Essencial', '{1,7,15,30}', true),
+  ('Intensivo', '{1,3,7,14,21}', true),
+  ('Longo prazo', '{2,10,30,60,120}', true)
 on conflict do nothing;

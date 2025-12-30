@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { useToast } from "@/app/components/toast-provider";
 
 type TemplateItem = {
   id: string;
@@ -31,6 +32,7 @@ type BestTime = (typeof bestTimeOptions)[number];
 export default function OnboardingPage() {
   const router = useRouter();
   const supabase = createClient();
+  const { addToast } = useToast();
   const [step, setStep] = useState(1);
   const [name, setName] = useState("");
   const [objective, setObjective] = useState("Concurso da área fiscal");
@@ -102,7 +104,6 @@ export default function OnboardingPage() {
       const { data: templatesData } = await supabase
         .from("templates")
         .select("id,name,cadence_days")
-        .eq("study_type", studyType)
         .eq("is_default", true)
         .order("created_at", { ascending: true });
 
@@ -143,13 +144,17 @@ export default function OnboardingPage() {
     if (userError || !user) {
       setSaving(false);
       setMessage("Você precisa estar autenticado para concluir.");
+      addToast({
+        variant: "error",
+        title: "Você precisa estar autenticado.",
+        description: "Faça login para finalizar o onboarding.",
+      });
       return;
     }
 
     const { data: templatesData } = await supabase
       .from("templates")
-      .select("id,name,study_type")
-      .eq("study_type", studyType)
+      .select("id,name")
       .eq("name", selectedTemplate)
       .limit(1);
 
@@ -168,6 +173,11 @@ export default function OnboardingPage() {
     if (profileError) {
       setSaving(false);
       setMessage("Não foi possível salvar seu perfil.");
+      addToast({
+        variant: "error",
+        title: "Não foi possível salvar o perfil.",
+        description: "Tente novamente em instantes.",
+      });
       return;
     }
 
@@ -221,11 +231,21 @@ export default function OnboardingPage() {
       if (linkError) {
         setSaving(false);
         setMessage("Não foi possível vincular as matérias.");
+        addToast({
+          variant: "error",
+          title: "Não foi possível vincular as matérias.",
+          description: "Tente novamente em instantes.",
+        });
         return;
       }
     }
 
     setSaving(false);
+    addToast({
+      variant: "success",
+      title: "Onboarding concluído.",
+      description: "Seu painel já está pronto.",
+    });
     router.push("/");
     router.refresh();
   };
@@ -266,7 +286,7 @@ export default function OnboardingPage() {
               type="text"
               value={name}
               onChange={(event) => setName(event.target.value)}
-              className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-sm text-[#1f1c18]"
+              className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-base text-[#1f1c18]"
             />
           </div>
           <div>
@@ -277,7 +297,7 @@ export default function OnboardingPage() {
               type="text"
               value={objective}
               onChange={(event) => setObjective(event.target.value)}
-              className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-sm text-[#1f1c18]"
+              className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-base text-[#1f1c18]"
               placeholder="Ex: Concurso da área fiscal"
             />
           </div>
@@ -286,7 +306,7 @@ export default function OnboardingPage() {
               Tipo de estudo
             </label>
             <select
-              className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-sm text-[#1f1c18]"
+              className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-base text-[#1f1c18]"
               value={studyType}
               onChange={(event) =>
                 setStudyType(event.target.value as StudyType)
@@ -294,7 +314,9 @@ export default function OnboardingPage() {
             >
               {studyTypeOptions.map((option) => (
                 <option key={option} value={option}>
-                  {option === "Concurso" ? "Concurso público" : option}
+                  {option === "Concurso"
+                    ? "Concurso público"
+                    : "Vestibular/Faculdade"}
                 </option>
               ))}
             </select>
@@ -304,7 +326,7 @@ export default function OnboardingPage() {
               Melhor horário para estudar
             </label>
             <select
-              className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-sm text-[#1f1c18]"
+              className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-base text-[#1f1c18]"
               value={bestTime}
               onChange={(event) =>
                 setBestTime(event.target.value as BestTime)
@@ -332,8 +354,41 @@ export default function OnboardingPage() {
           </div>
           <div className="grid gap-2 sm:grid-cols-2">
             {availableSubjects.length === 0 ? (
-              <div className="rounded-md border border-[#efe2d1] bg-white px-3 py-3 text-xs text-[#6b6357]">
-                Nenhuma matéria padrão encontrada para este tipo de estudo.
+              <div className="flex flex-col gap-3 rounded-md border border-[#efe2d1] bg-[#fbf7f2] px-3 py-3 text-xs text-[#6b6357]">
+                <div className="flex items-center gap-3">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-full border border-[#e2d6c4] bg-[#fdf8f1] text-[#4b4337]">
+                    <svg
+                      aria-hidden="true"
+                      className="h-3 w-3"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
+                      <circle cx="12" cy="12" r="9" />
+                      <path
+                        d="M9 10h.01M15 10h.01"
+                        strokeLinecap="round"
+                      />
+                      <path
+                        d="M16 16c-1-1-3-1-4-1s-3 0-4 1"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  </span>
+                  <div>
+                    <p className="font-semibold text-[#4b4337]">
+                      Nenhuma matéria padrão encontrada.
+                    </p>
+                    <p className="text-xs text-[#6b6357]">
+                      Você pode cadastrar matérias personalizadas.
+                    </p>
+                  </div>
+                </div>
+                <div className="text-xs text-[#6b6357]">
+                  Passos: avance e adicione suas próprias matérias.
+                </div>
               </div>
             ) : (
               availableSubjects.map((subject) => {
@@ -369,7 +424,7 @@ export default function OnboardingPage() {
                 type="text"
                 value={customSubject}
                 onChange={(event) => setCustomSubject(event.target.value)}
-                className="h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-sm text-[#1f1c18]"
+                className="h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-base text-[#1f1c18]"
                 placeholder="Ex: Direito Tributário"
               />
               <button
@@ -412,8 +467,41 @@ export default function OnboardingPage() {
           </div>
           <div className="grid gap-3">
             {templates.length === 0 ? (
-              <div className="rounded-md border border-[#efe2d1] bg-white px-4 py-3 text-xs text-[#6b6357]">
-                Nenhum template padrão disponível para este tipo de estudo.
+              <div className="flex flex-col gap-3 rounded-md border border-[#efe2d1] bg-[#fbf7f2] px-4 py-3 text-xs text-[#6b6357]">
+                <div className="flex items-center gap-3">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-full border border-[#e2d6c4] bg-[#fdf8f1] text-[#4b4337]">
+                    <svg
+                      aria-hidden="true"
+                      className="h-3 w-3"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
+                      <circle cx="12" cy="12" r="9" />
+                      <path
+                        d="M9 10h.01M15 10h.01"
+                        strokeLinecap="round"
+                      />
+                      <path
+                        d="M16 16c-1-1-3-1-4-1s-3 0-4 1"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  </span>
+                  <div>
+                    <p className="font-semibold text-[#4b4337]">
+                      Nenhum template disponível.
+                    </p>
+                    <p className="text-xs text-[#6b6357]">
+                      Crie um template para organizar suas revisões.
+                    </p>
+                  </div>
+                </div>
+                <div className="text-xs text-[#6b6357]">
+                  Passos: avance e cadastre seu primeiro template.
+                </div>
               </div>
             ) : (
               templates.map((template) => {
@@ -458,7 +546,7 @@ export default function OnboardingPage() {
               type="time"
               value={dailyTime}
               onChange={(event) => setDailyTime(event.target.value)}
-              className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-sm text-[#1f1c18]"
+              className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-base text-[#1f1c18]"
             />
           </div>
           <div className="rounded-md border border-[#efe2d1] bg-[#fdf8f1] px-4 py-3 text-xs text-[#6b6357]">
@@ -484,7 +572,7 @@ export default function OnboardingPage() {
         {step < 3 ? (
           <button
             type="button"
-            className="rounded-md bg-[#1f5b4b] px-4 py-2 text-xs font-semibold text-[#fffaf2]"
+            className="min-h-[44px] rounded-md bg-[#1f5b4b] px-4 py-2 text-sm font-semibold text-[#fffaf2]"
             onClick={() => setStep((prev) => Math.min(3, prev + 1))}
           >
             Continuar
@@ -492,7 +580,7 @@ export default function OnboardingPage() {
         ) : (
           <button
             type="button"
-            className="rounded-md bg-[#1f5b4b] px-4 py-2 text-xs font-semibold text-[#fffaf2] disabled:cursor-not-allowed disabled:bg-[#9fbfb5]"
+            className="min-h-[44px] rounded-md bg-[#1f5b4b] px-4 py-2 text-sm font-semibold text-[#fffaf2] disabled:cursor-not-allowed disabled:bg-[#9fbfb5]"
             onClick={handleFinish}
             disabled={saving}
           >

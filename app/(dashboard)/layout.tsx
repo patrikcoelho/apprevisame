@@ -12,12 +12,108 @@ export default function DashboardLayout({
 }) {
   const pathname = usePathname();
   const supabase = useMemo(() => createClient(), []);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [profileName, setProfileName] = useState("—");
   const [profileEmail, setProfileEmail] = useState("—");
-  const [studyType, setStudyType] = useState("—");
+  const [studyType, setStudyType] = useState<"Concurso" | "Faculdade" | null>(
+    null
+  );
 
   const isActive = (href: string) =>
     href === "/" ? pathname === "/" : pathname.startsWith(href);
+
+  const navItems = [
+    {
+      label: "Inicio",
+      href: "/",
+      icon: (
+        <svg
+          aria-hidden="true"
+          className="h-4 w-4 text-[#6b6357]"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.7"
+        >
+          <path d="M3 11l9-7 9 7" strokeLinecap="round" />
+          <path d="M5 10v9h14v-9" strokeLinecap="round" />
+        </svg>
+      ),
+    },
+    {
+      label: "Revisões",
+      href: "/revisoes",
+      icon: (
+        <svg
+          aria-hidden="true"
+          className="h-4 w-4 text-[#6b6357]"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.7"
+        >
+          <rect x="4" y="5" width="16" height="14" rx="2" />
+          <path d="M8 3v4M16 3v4M7 11h4M7 15h8" strokeLinecap="round" />
+        </svg>
+      ),
+    },
+    {
+      label: "Adicionar",
+      href: "/adicionar",
+      icon: (
+        <svg
+          aria-hidden="true"
+          className="h-4 w-4 text-[#6b6357]"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.7"
+        >
+          <rect x="4" y="4" width="16" height="16" rx="2" />
+          <path d="M12 8v8M8 12h8" strokeLinecap="round" />
+        </svg>
+      ),
+    },
+    {
+      label: "Relatórios",
+      href: "/relatorios",
+      icon: (
+        <svg
+          aria-hidden="true"
+          className="h-4 w-4 text-[#6b6357]"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.7"
+        >
+          <path d="M4 19V5" strokeLinecap="round" />
+          <path d="M8 19V10" strokeLinecap="round" />
+          <path d="M12 19V7" strokeLinecap="round" />
+          <path d="M16 19v-5" strokeLinecap="round" />
+          <path d="M20 19v-9" strokeLinecap="round" />
+        </svg>
+      ),
+    },
+    {
+      label: "Config",
+      href: "/configuracoes",
+      icon: (
+        <svg
+          aria-hidden="true"
+          className="h-4 w-4 text-[#6b6357]"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.7"
+        >
+          <path d="M4 7h10M4 17h16M14 7h6M4 12h16" strokeLinecap="round" />
+          <circle cx="14" cy="7" r="2" />
+          <circle cx="8" cy="12" r="2" />
+          <circle cx="18" cy="17" r="2" />
+        </svg>
+      ),
+    },
+  ];
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -31,7 +127,7 @@ export default function DashboardLayout({
 
       const { data: profile } = await supabase
         .from("profiles")
-        .select("full_name,study_type")
+        .select("full_name,study_type,avatar_url")
         .eq("id", user?.id ?? "")
         .maybeSingle();
 
@@ -44,10 +140,19 @@ export default function DashboardLayout({
         setProfileName(fallbackName);
       }
       if (profile?.study_type) {
-        setStudyType(
-          profile.study_type === "Concurso"
-            ? "Concurso público"
-            : "Faculdade"
+        setStudyType(profile.study_type);
+      }
+
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(
+          new CustomEvent("revisame:profile-sync", {
+            detail: {
+              fullName: fallbackName ?? "",
+              email: user?.email ?? "",
+              studyType: profile?.study_type ?? null,
+              avatarUrl: profile?.avatar_url ?? null,
+            },
+          })
         );
       }
     };
@@ -59,7 +164,9 @@ export default function DashboardLayout({
     const handleProfileUpdate = (event: Event) => {
       const detail = (event as CustomEvent<{ studyType?: string }>).detail;
       if (detail?.studyType) {
-        setStudyType(detail.studyType);
+        setStudyType(
+          detail.studyType === "Concurso público" ? "Concurso" : "Faculdade"
+        );
       }
     };
 
@@ -68,12 +175,146 @@ export default function DashboardLayout({
       window.removeEventListener("revisame:profile-updated", handleProfileUpdate);
   }, []);
 
+  useEffect(() => {
+    setIsMenuOpen(false);
+  }, [pathname]);
+
   return (
     <div className="min-h-screen bg-[#f6f1ea] text-[#1d1b16]">
       <div className="pointer-events-none fixed left-[-20rem] top-[-14rem] h-[28rem] w-[28rem] rounded-full bg-[radial-gradient(circle_at_center,rgba(217,91,67,0.25),rgba(246,241,234,0))] blur-3xl" />
       <div className="pointer-events-none fixed right-[-18rem] top-24 h-[30rem] w-[30rem] rounded-full bg-[radial-gradient(circle_at_center,rgba(246,241,234,0),rgba(246,241,234,0))] blur-3xl" />
 
       <div className="flex min-h-screen w-full">
+        <header className="fixed left-0 top-0 z-40 flex w-full items-center justify-between border-b border-[#e6dbc9] bg-[#fffaf2]/95 px-4 py-3 backdrop-blur lg:hidden">
+          <button
+            type="button"
+            className="flex h-11 w-11 items-center justify-center rounded-md border border-[#e2d6c4] bg-white text-[#4b4337]"
+            aria-label="Abrir menu"
+            onClick={() => setIsMenuOpen(true)}
+          >
+            <svg
+              aria-hidden="true"
+              className="h-5 w-5"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+            >
+              <path d="M4 6h16M4 12h16M4 18h16" strokeLinecap="round" />
+            </svg>
+          </button>
+          <div className="text-center">
+            <p className="text-[10px] uppercase tracking-[0.3em] text-[#6b6357]">
+              Revisame
+            </p>
+            <p className="text-base font-semibold text-[#1f1c18]">
+              Painel do aluno
+            </p>
+          </div>
+          <div className="h-11 w-11" />
+        </header>
+
+        <div
+          className={`fixed inset-0 z-50 lg:hidden ${
+            isMenuOpen ? "pointer-events-auto" : "pointer-events-none"
+          }`}
+        >
+          <div
+            className={`absolute inset-0 bg-black/40 transition-opacity ${
+              isMenuOpen ? "opacity-100" : "opacity-0"
+            }`}
+            onClick={() => setIsMenuOpen(false)}
+            aria-hidden="true"
+          />
+          <aside
+            className={`absolute left-0 top-0 flex h-full w-[82%] max-w-xs flex-col justify-between border-r border-[#e6dbc9] bg-[#fffaf2] p-5 transition-transform ${
+              isMenuOpen ? "translate-x-0" : "-translate-x-full"
+            }`}
+          >
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-md bg-[#1f5b4b] text-lg font-semibold text-[#fffaf2]">
+                    R
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase tracking-[0.3em] text-[#6b6357]">
+                      Revisame
+                    </p>
+                    <p className="text-base font-semibold text-[#1f1c18]">
+                      Painel do aluno
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="flex h-10 w-10 items-center justify-center rounded-md border border-[#e2d6c4] text-[#6b6357]"
+                  aria-label="Fechar menu"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  <svg
+                    aria-hidden="true"
+                    className="h-4 w-4"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <path
+                      d="M6 6l12 12M18 6l-12 12"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                </button>
+              </div>
+              <nav className="space-y-1 text-sm font-medium text-[#4e473c]">
+                {navItems.map((item) => (
+                  <Link
+                    key={item.label}
+                    href={item.href}
+                    onClick={() => setIsMenuOpen(false)}
+                    className={`flex items-center justify-between rounded-md px-3 py-3 transition hover:bg-[#f6efe4] ${
+                      isActive(item.href)
+                        ? "bg-[#f0e6d9] text-[#1f3f35]"
+                        : ""
+                    }`}
+                  >
+                    <span className="flex items-center gap-3">
+                      {item.icon}
+                      {item.label}
+                    </span>
+                  </Link>
+                ))}
+              </nav>
+              <div className="rounded-md border border-[#d8eadf] bg-[#e9f4ef] p-4 text-sm text-[#2f5d4e]">
+                <p className="text-[11px] font-semibold uppercase text-[#2c5b4b]">
+                  Tipo de estudo
+                </p>
+                <p className="mt-2 text-base font-semibold text-[#1f3f35]">
+                  {studyType
+                    ? studyType === "Concurso"
+                      ? "Concurso público"
+                      : "Vestibular/Faculdade"
+                    : "—"}
+                </p>
+                <Link
+                  href="/configuracoes?tab=conta"
+                  className="mt-3 block w-full rounded-md border border-[#b7d4c8] bg-[#f5fbf8] px-3 py-2 text-center text-xs font-semibold text-[#2c5b4b]"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  Alterar tipo
+                </Link>
+              </div>
+            </div>
+            <div className="rounded-md border border-[#e6dbc9] bg-[#fdf8f1] p-4 text-sm text-[#4b4337]">
+              <p className="font-semibold text-[#1f1c18]">
+                Aluno: {profileName}
+              </p>
+              <p className="text-xs text-[#6b6357]">{profileEmail}</p>
+            </div>
+          </aside>
+        </div>
+
         <aside className="fixed left-0 top-0 hidden h-screen w-64 flex-col justify-between border-r border-[#e6dbc9] bg-[#fffaf2] p-6 lg:flex">
           <div className="space-y-8">
             <div className="flex items-center gap-3">
@@ -90,98 +331,7 @@ export default function DashboardLayout({
               </div>
             </div>
             <nav className="space-y-1 text-sm font-medium text-[#4e473c]">
-              {[
-                {
-                  label: "Inicio",
-                  href: "/",
-                  icon: (
-                    <svg
-                      aria-hidden="true"
-                      className="h-4 w-4 text-[#6b6357]"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.7"
-                    >
-                      <path d="M3 11l9-7 9 7" strokeLinecap="round" />
-                      <path d="M5 10v9h14v-9" strokeLinecap="round" />
-                    </svg>
-                  ),
-                },
-                {
-                  label: "Revisões",
-                  href: "/revisoes",
-                  icon: (
-                    <svg
-                      aria-hidden="true"
-                      className="h-4 w-4 text-[#6b6357]"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.7"
-                    >
-                      <rect x="4" y="5" width="16" height="14" rx="2" />
-                      <path d="M8 3v4M16 3v4M7 11h4M7 15h8" strokeLinecap="round" />
-                    </svg>
-                  ),
-                },
-                {
-                  label: "Adicionar estudo",
-                  href: "/adicionar",
-                  icon: (
-                    <svg
-                      aria-hidden="true"
-                      className="h-4 w-4 text-[#6b6357]"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.7"
-                    >
-                      <rect x="4" y="4" width="16" height="16" rx="2" />
-                      <path d="M12 8v8M8 12h8" strokeLinecap="round" />
-                    </svg>
-                  ),
-                },
-                {
-                  label: "Relatórios",
-                  href: "/relatorios",
-                  icon: (
-                    <svg
-                      aria-hidden="true"
-                      className="h-4 w-4 text-[#6b6357]"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.7"
-                    >
-                      <path d="M4 19V5" strokeLinecap="round" />
-                      <path d="M8 19V10" strokeLinecap="round" />
-                      <path d="M12 19V7" strokeLinecap="round" />
-                      <path d="M16 19v-5" strokeLinecap="round" />
-                      <path d="M20 19v-9" strokeLinecap="round" />
-                    </svg>
-                  ),
-                },
-                {
-                  label: "Configurações",
-                  href: "/configuracoes",
-                  icon: (
-                    <svg
-                      aria-hidden="true"
-                      className="h-4 w-4 text-[#6b6357]"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.7"
-                    >
-                      <path d="M4 7h10M4 17h16M14 7h6M4 12h16" strokeLinecap="round" />
-                      <circle cx="14" cy="7" r="2" />
-                      <circle cx="8" cy="12" r="2" />
-                      <circle cx="18" cy="17" r="2" />
-                    </svg>
-                  ),
-                },
-              ].map((item) => (
+              {navItems.map((item) => (
                 <Link
                   key={item.label}
                   href={item.href}
@@ -203,7 +353,11 @@ export default function DashboardLayout({
                 Tipo de estudo
               </p>
               <p className="mt-2 text-base font-semibold text-[#1f3f35]">
-                {studyType}
+                {studyType
+                  ? studyType === "Concurso"
+                    ? "Concurso público"
+                    : "Vestibular/Faculdade"
+                  : "—"}
               </p>
               <Link
                 href="/configuracoes?tab=conta"
@@ -228,10 +382,29 @@ export default function DashboardLayout({
           </div>
         </aside>
 
-        <main className="flex-1 space-y-6 px-6 py-6 lg:ml-64">
+        <main className="flex-1 space-y-6 overflow-x-hidden px-4 pb-24 pt-20 md:px-6 lg:ml-64 lg:pb-6 lg:pt-6">
           {children}
         </main>
       </div>
+
+      <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-[#e6dbc9] bg-[#fffaf2]/95 backdrop-blur lg:hidden">
+        <div className="grid grid-cols-5 gap-1 px-3 py-2">
+          {navItems.map((item) => (
+            <Link
+              key={item.label}
+              href={item.href}
+              className={`min-h-[52px] flex flex-col items-center justify-center gap-1 rounded-md px-2 py-2 text-[11px] font-semibold ${
+                isActive(item.href)
+                  ? "bg-[#1f3f35] text-white shadow-[0_8px_20px_-18px_rgba(31,91,75,0.6)] [&_svg]:text-white"
+                  : "text-[#6b6357]"
+              }`}
+            >
+              {item.icon}
+              <span>{item.label}</span>
+            </Link>
+          ))}
+        </div>
+      </nav>
     </div>
   );
 }

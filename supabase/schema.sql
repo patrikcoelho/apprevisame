@@ -61,18 +61,17 @@ create table if not exists templates (
   id uuid primary key default gen_random_uuid(),
   name text not null,
   cadence_days int[] not null,
-  study_type study_type not null,
   is_default boolean not null default false,
   owner_user_id uuid references auth.users on delete cascade,
   created_at timestamptz not null default now()
 );
 
 create unique index if not exists templates_default_unique
-  on templates (lower(name), study_type)
+  on templates (lower(name))
   where owner_user_id is null;
 
 create unique index if not exists templates_custom_unique
-  on templates (lower(name), study_type, owner_user_id)
+  on templates (lower(name), owner_user_id)
   where owner_user_id is not null;
 
 alter table profiles
