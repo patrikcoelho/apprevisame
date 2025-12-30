@@ -1,17 +1,17 @@
-insert into subjects (name, study_type, is_default)
+insert into subjects (name, is_default)
 values
-  ('Português', 'Concurso', true),
-  ('Raciocínio Lógico', 'Concurso', true),
-  ('Direito Constitucional', 'Concurso', true),
-  ('Administração Pública', 'Concurso', true),
-  ('Informática', 'Concurso', true),
-  ('Matemática', 'Concurso', true),
-  ('Cálculo I', 'Faculdade', true),
-  ('Física I', 'Faculdade', true),
-  ('Química Geral', 'Faculdade', true),
-  ('Algoritmos', 'Faculdade', true),
-  ('Economia', 'Faculdade', true),
-  ('Estatística', 'Faculdade', true)
+  ('Português', true),
+  ('Raciocínio Lógico', true),
+  ('Direito Constitucional', true),
+  ('Administração Pública', true),
+  ('Informática', true),
+  ('Matemática', true),
+  ('Cálculo I', true),
+  ('Física I', true),
+  ('Química Geral', true),
+  ('Algoritmos', true),
+  ('Economia', true),
+  ('Estatística', true)
 on conflict do nothing;
 
 insert into templates (name, cadence_days, is_default)

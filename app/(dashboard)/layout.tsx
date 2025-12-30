@@ -15,9 +15,6 @@ export default function DashboardLayout({
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [profileName, setProfileName] = useState("—");
   const [profileEmail, setProfileEmail] = useState("—");
-  const [studyType, setStudyType] = useState<"Concurso" | "Faculdade" | null>(
-    null
-  );
 
   const isActive = (href: string) =>
     href === "/" ? pathname === "/" : pathname.startsWith(href);
@@ -127,7 +124,7 @@ export default function DashboardLayout({
 
       const { data: profile } = await supabase
         .from("profiles")
-        .select("full_name,study_type,avatar_url")
+        .select("full_name,avatar_url")
         .eq("id", user?.id ?? "")
         .maybeSingle();
 
@@ -139,17 +136,12 @@ export default function DashboardLayout({
       if (fallbackName) {
         setProfileName(fallbackName);
       }
-      if (profile?.study_type) {
-        setStudyType(profile.study_type);
-      }
-
       if (typeof window !== "undefined") {
         window.dispatchEvent(
           new CustomEvent("revisame:profile-sync", {
             detail: {
               fullName: fallbackName ?? "",
               email: user?.email ?? "",
-              studyType: profile?.study_type ?? null,
               avatarUrl: profile?.avatar_url ?? null,
             },
           })
@@ -160,20 +152,6 @@ export default function DashboardLayout({
     loadProfile();
   }, [supabase]);
 
-  useEffect(() => {
-    const handleProfileUpdate = (event: Event) => {
-      const detail = (event as CustomEvent<{ studyType?: string }>).detail;
-      if (detail?.studyType) {
-        setStudyType(
-          detail.studyType === "Concurso público" ? "Concurso" : "Faculdade"
-        );
-      }
-    };
-
-    window.addEventListener("revisame:profile-updated", handleProfileUpdate);
-    return () =>
-      window.removeEventListener("revisame:profile-updated", handleProfileUpdate);
-  }, []);
 
   useEffect(() => {
     setIsMenuOpen(false);
@@ -286,25 +264,6 @@ export default function DashboardLayout({
                   </Link>
                 ))}
               </nav>
-              <div className="rounded-md border border-[#d8eadf] bg-[#e9f4ef] p-4 text-sm text-[#2f5d4e]">
-                <p className="text-[11px] font-semibold uppercase text-[#2c5b4b]">
-                  Tipo de estudo
-                </p>
-                <p className="mt-2 text-base font-semibold text-[#1f3f35]">
-                  {studyType
-                    ? studyType === "Concurso"
-                      ? "Concurso público"
-                      : "Vestibular/Faculdade"
-                    : "—"}
-                </p>
-                <Link
-                  href="/configuracoes?tab=conta"
-                  className="mt-3 block w-full rounded-md border border-[#b7d4c8] bg-[#f5fbf8] px-3 py-2 text-center text-xs font-semibold text-[#2c5b4b]"
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  Alterar tipo
-                </Link>
-              </div>
             </div>
             <div className="rounded-md border border-[#e6dbc9] bg-[#fdf8f1] p-4 text-sm text-[#4b4337]">
               <p className="font-semibold text-[#1f1c18]">
@@ -348,24 +307,6 @@ export default function DashboardLayout({
                 </Link>
               ))}
             </nav>
-            <div className="rounded-md border border-[#d8eadf] bg-[#e9f4ef] p-4 text-sm text-[#2f5d4e]">
-              <p className="text-xs font-semibold uppercase text-[#2c5b4b]">
-                Tipo de estudo
-              </p>
-              <p className="mt-2 text-base font-semibold text-[#1f3f35]">
-                {studyType
-                  ? studyType === "Concurso"
-                    ? "Concurso público"
-                    : "Vestibular/Faculdade"
-                  : "—"}
-              </p>
-              <Link
-                href="/configuracoes?tab=conta"
-                className="mt-3 block w-full rounded-md border border-[#b7d4c8] bg-[#f5fbf8] px-3 py-2 text-center text-xs font-semibold text-[#2c5b4b]"
-              >
-                Alterar tipo
-              </Link>
-            </div>
           </div>
           <div className="rounded-md border border-[#e6dbc9] bg-[#fdf8f1] p-4 text-sm text-[#4b4337]">
             <p className="font-semibold text-[#1f1c18]">

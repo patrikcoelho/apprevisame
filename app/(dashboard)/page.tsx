@@ -26,7 +26,7 @@ export default async function Home() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("full_name,study_type")
+    .select("full_name")
     .eq("id", user?.id ?? "")
     .maybeSingle();
 
@@ -35,9 +35,6 @@ export default async function Home() {
     (user?.user_metadata?.full_name as string | undefined) ||
     user?.email?.split("@")[0];
 
-  const resolvedStudyType =
-    (profile?.study_type as "Concurso" | "Faculdade" | null) ?? "Concurso";
-
   const { data: reviewsData } = await supabase
     .from("reviews")
     .select(
@@ -45,7 +42,6 @@ export default async function Home() {
     )
     .eq("status", "pendente")
     .eq("user_id", user?.id ?? "")
-    .eq("study.subject.study_type", resolvedStudyType)
     .order("due_at", { ascending: true });
 
   const initialReviews =

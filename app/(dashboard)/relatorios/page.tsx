@@ -6,26 +6,15 @@ export default async function Relatorios() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("study_type")
-    .eq("id", user?.id ?? "")
-    .maybeSingle();
-
-  const resolvedStudyType =
-    (profile?.study_type as "Concurso" | "Faculdade" | null) ?? "Concurso";
-
   const { data: studies } = await supabase
     .from("studies")
-    .select("questions_total,questions_correct,subject:subjects(study_type)")
-    .eq("user_id", user?.id ?? "")
-    .eq("subject.study_type", resolvedStudyType);
+    .select("questions_total,questions_correct")
+    .eq("user_id", user?.id ?? "");
 
   const { data: subjects } = await supabase
     .from("user_subjects")
-    .select("subject:subjects(id,study_type)")
-    .eq("user_id", user?.id ?? "")
-    .eq("subject.study_type", resolvedStudyType);
+    .select("subject:subjects(id)")
+    .eq("user_id", user?.id ?? "");
 
   const totalQuestions =
     studies?.reduce((sum, item) => sum + (item.questions_total ?? 0), 0) ?? 0;
@@ -48,7 +37,7 @@ export default async function Relatorios() {
         </div>
       </header>
 
-      <section className="rounded-lg border border-[#e6dbc9] bg-[#fffaf2] p-4 sm:p-6">
+      <section className="rounded-lg border border-[#e6dbc9] bg-[#fffaf2] p-3 sm:p-6">
         <h2 className="flex items-center gap-2 text-lg font-semibold text-[#1f1c18]">
           <svg
             aria-hidden="true"

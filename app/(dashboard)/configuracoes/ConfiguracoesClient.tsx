@@ -9,7 +9,6 @@ import { useToast } from "@/app/components/toast-provider";
 type SubjectItem = {
   id: string;
   label: string;
-  type: "Concurso" | "Faculdade";
   isDefault: boolean;
 };
 
@@ -24,7 +23,6 @@ type TemplateItem = {
 
 type ProfileRow = {
   full_name?: string | null;
-  study_type?: "Concurso" | "Faculdade" | null;
   plan?: string | null;
   active_template_id?: string | null;
   avatar_url?: string | null;
@@ -46,7 +44,6 @@ type SubjectLinkRow = {
   subject: {
     id: string;
     name: string;
-    study_type: "Concurso" | "Faculdade";
     is_default: boolean;
   } | null;
 };
@@ -80,7 +77,6 @@ const notifyWeeklyDayOptions = [
 const notifyPriorityOptions = ["Baixo", "Médio", "Alto"] as const;
 const materiaFilterOptions = ["Todas", "Ativas", "Inativas"] as const;
 
-type AccountType = "Concurso" | "Faculdade";
 type PrefMode = (typeof prefModeOptions)[number];
 type PrefLanguage = (typeof prefLanguageOptions)[number];
 type PrefDateFormat = (typeof prefDateFormatOptions)[number];
@@ -236,8 +232,6 @@ export default function Configuracoes() {
   const [avatarStatus, setAvatarStatus] = useState<
     "idle" | "saving" | "saved" | "error"
   >("idle");
-  const [editingAccountType, setEditingAccountType] = useState(false);
-  const [accountType, setAccountType] = useState<AccountType>("Concurso");
   const [editingPreferences, setEditingPreferences] = useState(false);
   const [prefMode, setPrefMode] = useState<PrefMode>("Não definido");
   const [prefLanguage, setPrefLanguage] =
@@ -343,7 +337,7 @@ export default function Configuracoes() {
     const { data: profile } = await supabase
       .from("profiles")
       .select(
-        "full_name,study_type,plan,active_template_id,avatar_url,theme,language,date_format,notify_email,notify_app,notify_daily,notify_daily_time,notify_weekly,notify_weekly_day,notify_weekly_time,notify_overdue_top,notify_priority"
+        "full_name,plan,active_template_id,avatar_url,theme,language,date_format,notify_email,notify_app,notify_daily,notify_daily_time,notify_weekly,notify_weekly_day,notify_weekly_time,notify_overdue_top,notify_priority"
       )
       .eq("id", resolvedUser.id)
       .maybeSingle();
@@ -369,17 +363,6 @@ export default function Configuracoes() {
 
     setProfileImageUrl(await resolveAvatarUrl(typedProfile?.avatar_url ?? null));
 
-    const metadataStudyType = resolvedUser.user_metadata?.study_type;
-    const resolvedStudyTypeFromProfile =
-      typedProfile?.study_type ||
-      (metadataStudyType === "Concurso" || metadataStudyType === "Faculdade"
-        ? metadataStudyType
-        : null);
-    const currentStudyType =
-      (resolvedStudyTypeFromProfile as AccountType | null) ?? accountType;
-    if (resolvedStudyTypeFromProfile) {
-      setAccountType(resolvedStudyTypeFromProfile);
-    }
     if (typedProfile?.plan) {
       setActivePlan(typedProfile.plan === "Premium" ? "Premium" : "Gratuito");
     }
@@ -421,11 +404,9 @@ export default function Configuracoes() {
       setNotifyPriority(typedProfile.notify_priority);
     }
 
-    const resolvedStudyType = currentStudyType;
-
     const { data: subjectLinks } = await supabase
       .from("user_subjects")
-      .select("subject:subjects(id,name,study_type,is_default)")
+      .select("subject:subjects(id,name,is_default)")
       .eq("user_id", resolvedUser.id);
 
     const subjectItems = (subjectLinks as SubjectLinkRow[] | null) ?? [];
@@ -441,7 +422,6 @@ export default function Configuracoes() {
       (subject: NonNullable<SubjectLinkRow["subject"]>) => ({
         id: subject.id,
         label: subject.name,
-        type: subject.study_type,
         isDefault: subject.is_default,
       })
     );
@@ -526,11 +506,10 @@ export default function Configuracoes() {
   const filteredSubjects = useMemo(() => {
     const search = materiaSearch.trim().toLowerCase();
     return subjects.filter((item) => {
-      if (item.type !== accountType) return false;
       if (!search) return true;
       return item.label.toLowerCase().includes(search);
     });
-  }, [subjects, accountType, materiaSearch]);
+  }, [subjects, materiaSearch]);
 
   const activeTemplate = useMemo(
     () => templates.find((item) => item.id === activeTemplateId),
@@ -668,7 +647,6 @@ export default function Configuracoes() {
         event as CustomEvent<{
           fullName?: string;
           email?: string;
-          studyType?: "Concurso" | "Faculdade" | null;
           avatarUrl?: string | null;
         }>
       ).detail;
@@ -686,9 +664,6 @@ export default function Configuracoes() {
       }
       if (detail?.email) {
         setUserEmail(detail.email);
-      }
-      if (detail?.studyType) {
-        setAccountType(detail.studyType);
       }
       if (detail?.avatarUrl) {
         resolveAvatarUrl(detail.avatarUrl).then((resolved) => {
@@ -728,46 +703,6 @@ export default function Configuracoes() {
       });
     }
     setEditingProfile((prev) => !prev);
-  };
-
-  const handleAccountTypeToggle = async () => {
-    if (editingAccountType) {
-      const resolvedUserId = await resolveUserId();
-      if (!resolvedUserId) return;
-      const safeName =
-        profileName || (userEmail !== "—" ? userEmail.split("@")[0] : "Aluno");
-      const { error } = await supabase.from("profiles").upsert({
-        id: resolvedUserId,
-        full_name: safeName,
-        study_type: accountType,
-      });
-      if (error) {
-        addToast({
-          variant: "error",
-          title: "Não foi possível atualizar o tipo de conta.",
-          description: "Tente novamente em instantes.",
-        });
-        return;
-      }
-      await loadProfile();
-      if (typeof window !== "undefined") {
-        const label =
-          accountType === "Concurso"
-            ? "Concurso público"
-            : "Vestibular/Faculdade";
-        window.dispatchEvent(
-          new CustomEvent("revisame:profile-updated", {
-            detail: { studyType: label },
-          })
-        );
-      }
-      addToast({
-        variant: "success",
-        title: "Tipo de conta atualizado.",
-        description: "As matérias foram ajustadas.",
-      });
-    }
-    setEditingAccountType((prev) => !prev);
   };
 
   const handlePreferencesToggle = async () => {
@@ -890,7 +825,7 @@ export default function Configuracoes() {
       </div>
 
       {activeTab === "conta" ? (
-        <section className="rounded-lg border border-[#e6dbc9] bg-[#fffaf2] p-4 sm:p-6">
+        <section className="rounded-lg border border-[#e6dbc9] bg-[#fffaf2] p-3 sm:p-6">
           <div className="space-y-8">
             <div>
               <div className="flex items-center gap-2 text-sm font-semibold text-[#4b4337]">
@@ -908,7 +843,7 @@ export default function Configuracoes() {
                 Dados pessoais
               </div>
               <div className="mt-3 space-y-3">
-                <div className="w-full max-w-sm">
+                <div className="w-full sm:max-w-sm">
                   <label className="text-xs font-semibold text-[#6b6357]">
                     Nome
                   </label>
@@ -921,7 +856,7 @@ export default function Configuracoes() {
                     className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-base text-[#1f1c18] disabled:bg-[#fdf8f1] disabled:text-[#6b6357]"
                   />
                 </div>
-                <div className="w-full max-w-sm">
+                <div className="w-full sm:max-w-sm">
                   <label className="text-xs font-semibold text-[#6b6357]">
                     E-mail
                   </label>
@@ -932,7 +867,7 @@ export default function Configuracoes() {
                     className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-[#fdf8f1] px-3 text-sm text-[#6b6357]"
                   />
                 </div>
-                <div className="flex w-full max-w-sm items-center gap-3 rounded-md border border-[#efe2d1] bg-[#fdf8f1] px-4 py-3 text-sm text-[#4b4337]">
+                <div className="flex w-full sm:max-w-sm items-center gap-3 rounded-md border border-[#efe2d1] bg-[#fdf8f1] px-4 py-3 text-sm text-[#4b4337]">
                   <div className="relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-full border border-[#e2d6c4] bg-white text-sm font-semibold text-[#6b6357]">
                     {profileImageUrl ? (
                       <Image
@@ -1052,54 +987,13 @@ export default function Configuracoes() {
                   stroke="currentColor"
                   strokeWidth="1.7"
                 >
-                  <path d="M4 6h16M4 12h16M4 18h16" strokeLinecap="round" />
-                </svg>
-                Tipo de conta
-              </div>
-              <div className="mt-3 w-full max-w-sm">
-                <label className="text-xs font-semibold text-[#6b6357]">
-                  Tipo atual
-                </label>
-                <select
-                  className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-base text-[#1f1c18] disabled:bg-[#fdf8f1] disabled:text-[#6b6357]"
-                  disabled={!editingAccountType}
-                  value={accountType}
-                  onChange={(event) =>
-                    setAccountType(event.target.value as AccountType)
-                  }
-                >
-                  <option value="Concurso">Concurso público</option>
-                  <option value="Faculdade">Vestibular/Faculdade</option>
-                </select>
-              </div>
-              <p className="mt-2 text-xs text-[#6b6357]">
-                Alterar o tipo impacta a lista de matérias disponíveis.
-              </p>
-              <button
-                className="mt-3 rounded-md border border-[#e2d6c4] bg-[#f0e6d9] px-4 py-2 text-sm font-semibold min-h-[44px] text-[#4b4337]"
-                onClick={handleAccountTypeToggle}
-              >
-                {editingAccountType ? "Salvar tipo" : "Alterar tipo"}
-              </button>
-            </div>
-
-            <div className="border-t border-[#e6dbc9] pt-6">
-              <div className="flex items-center gap-2 text-sm font-semibold text-[#4b4337]">
-                <svg
-                  aria-hidden="true"
-                  className="h-5 w-5 text-[#1f5b4b]"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.7"
-                >
                   <path d="M12 3v3M12 18v3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M3 12h3M18 12h3M4.9 19.1l2.1-2.1M17 7l2.1-2.1" />
                   <circle cx="12" cy="12" r="4" />
                 </svg>
                 Preferências do sistema
               </div>
               <div className="mt-3 space-y-3 text-sm text-[#4b4337]">
-                <div className="w-full max-w-sm">
+                <div className="w-full sm:max-w-sm">
                   <label className="text-xs font-semibold text-[#6b6357]">
                     Modo do sistema
                   </label>
@@ -1118,7 +1012,7 @@ export default function Configuracoes() {
                     ))}
                 </select>
                 </div>
-                <div className="w-full max-w-sm">
+                <div className="w-full sm:max-w-sm">
                   <label className="text-xs font-semibold text-[#6b6357]">
                     Idioma
                   </label>
@@ -1137,7 +1031,7 @@ export default function Configuracoes() {
                     ))}
                 </select>
                 </div>
-                <div className="w-full max-w-sm">
+                <div className="w-full sm:max-w-sm">
                   <label className="text-xs font-semibold text-[#6b6357]">
                     Formato de data
                   </label>
@@ -1169,7 +1063,7 @@ export default function Configuracoes() {
       ) : null}
 
       {activeTab === "materias" ? (
-        <section className="rounded-lg border border-[#e6dbc9] bg-[#fffaf2] p-4 sm:p-6">
+        <section className="rounded-lg border border-[#e6dbc9] bg-[#fffaf2] p-3 sm:p-6">
           <div className="space-y-5">
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div>
@@ -1177,7 +1071,7 @@ export default function Configuracoes() {
                   Matérias
                 </p>
                 <h2 className="text-xl font-semibold text-[#1f1c18]">
-                  Cadastro por tipo de estudo.
+                  Cadastro de matérias.
                 </h2>
               </div>
               <button
@@ -1190,14 +1084,7 @@ export default function Configuracoes() {
 
             <div className="grid gap-3 text-sm text-[#4b4337] sm:grid-cols-2">
               <div className="rounded-md border border-[#efe2d1] bg-[#fdf8f1] px-4 py-3">
-                Tipo atual:{" "}
-                {accountType === "Concurso"
-                  ? "Concurso público"
-                  : "Vestibular/Faculdade"}
-              </div>
-              <div className="rounded-md border border-[#efe2d1] bg-[#fdf8f1] px-4 py-3">
-                Total cadastradas:{" "}
-                {filteredSubjects.length}
+                Total cadastradas: {filteredSubjects.length}
               </div>
             </div>
 
@@ -1282,9 +1169,6 @@ export default function Configuracoes() {
                     >
                       <div className="flex items-center gap-2">
                         <span className="font-semibold">{item.label}</span>
-                        <span className="rounded-full bg-[#f0e6d9] px-2 py-1 text-[10px] uppercase text-[#4b4337]">
-                          {item.type}
-                        </span>
                         <span className="rounded-full border border-[#e2d6c4] px-2 py-1 text-[10px] uppercase text-[#6b6357]">
                           {item.isDefault ? "Padrão" : "Personalizada"}
                         </span>
@@ -1322,7 +1206,7 @@ export default function Configuracoes() {
       ) : null}
 
       {activeTab === "templates" ? (
-        <section className="rounded-lg border border-[#e6dbc9] bg-[#fffaf2] p-4 sm:p-6">
+        <section className="rounded-lg border border-[#e6dbc9] bg-[#fffaf2] p-3 sm:p-6">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
               <p className="text-xs font-semibold uppercase text-[#6b6357]">
@@ -1469,7 +1353,7 @@ export default function Configuracoes() {
       ) : null}
 
       {activeTab === "notificacoes" ? (
-        <section className="rounded-lg border border-[#e6dbc9] bg-[#fffaf2] p-4 sm:p-6">
+        <section className="rounded-lg border border-[#e6dbc9] bg-[#fffaf2] p-3 sm:p-6">
           <div className="space-y-8">
             <div>
               <div className="flex items-center gap-2 text-sm font-semibold text-[#4b4337]">
@@ -1492,7 +1376,7 @@ export default function Configuracoes() {
                 Defina por onde deseja receber lembretes e alertas.
               </p>
               <div className="mt-3 grid gap-3 text-sm text-[#4b4337]">
-                <div className="w-full max-w-sm">
+                <div className="w-full sm:max-w-sm">
                   <label className="text-xs font-semibold text-[#6b6357]">
                     E-mail
                   </label>
@@ -1508,7 +1392,7 @@ export default function Configuracoes() {
                     <option>Inativo</option>
                   </select>
                 </div>
-                <div className="w-full max-w-sm">
+                <div className="w-full sm:max-w-sm">
                   <label className="text-xs font-semibold text-[#6b6357]">
                     Aplicativo
                   </label>
@@ -1543,7 +1427,7 @@ export default function Configuracoes() {
                 Rotina de lembretes
               </div>
               <div className="mt-3 grid gap-3 text-sm text-[#4b4337]">
-                <div className="w-full max-w-sm">
+                <div className="w-full sm:max-w-sm">
                   <label className="text-xs font-semibold text-[#6b6357]">
                     Lembrete diário
                   </label>
@@ -1559,7 +1443,7 @@ export default function Configuracoes() {
                     <option>Inativo</option>
                   </select>
                 </div>
-                <div className="w-full max-w-sm">
+                <div className="w-full sm:max-w-sm">
                   <label className="text-xs font-semibold text-[#6b6357]">
                     Horário do lembrete diário
                   </label>
@@ -1571,7 +1455,7 @@ export default function Configuracoes() {
                     className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-base text-[#1f1c18] disabled:bg-[#fdf8f1] disabled:text-[#6b6357]"
                   />
                 </div>
-                <div className="w-full max-w-sm">
+                <div className="w-full sm:max-w-sm">
                   <label className="text-xs font-semibold text-[#6b6357]">
                     Resumo semanal
                   </label>
@@ -1587,7 +1471,7 @@ export default function Configuracoes() {
                     <option>Inativo</option>
                   </select>
                 </div>
-                <div className="w-full max-w-sm">
+                <div className="w-full sm:max-w-sm">
                   <label className="text-xs font-semibold text-[#6b6357]">
                     Dia do resumo
                   </label>
@@ -1606,7 +1490,7 @@ export default function Configuracoes() {
                     ))}
                   </select>
                 </div>
-                <div className="w-full max-w-sm">
+                <div className="w-full sm:max-w-sm">
                   <label className="text-xs font-semibold text-[#6b6357]">
                     Horário do resumo semanal
                   </label>
@@ -1638,7 +1522,7 @@ export default function Configuracoes() {
                 Prioridades de alerta
               </div>
               <div className="mt-3 space-y-3 text-sm text-[#4b4337]">
-                <div className="w-full max-w-sm">
+                <div className="w-full sm:max-w-sm">
                   <label className="text-xs font-semibold text-[#6b6357]">
                     Revisões atrasadas no topo
                   </label>
@@ -1654,7 +1538,7 @@ export default function Configuracoes() {
                     <option>Inativo</option>
                   </select>
                 </div>
-                <div className="w-full max-w-sm">
+                <div className="w-full sm:max-w-sm">
                   <label className="text-xs font-semibold text-[#6b6357]">
                     Nível de urgência
                   </label>
@@ -1691,7 +1575,7 @@ export default function Configuracoes() {
                 </svg>
                 Prévia das notificações
               </div>
-              <div className="mt-3 w-full max-w-sm rounded-md border border-[#efe2d1] bg-[#fdf8f1] px-4 py-3 text-sm text-[#4b4337]">
+              <div className="mt-3 w-full sm:max-w-sm rounded-md border border-[#efe2d1] bg-[#fdf8f1] px-4 py-3 text-sm text-[#4b4337]">
                 <p>Hoje você tem 3 revisões pendentes.</p>
                 <p className="mt-1 text-xs text-[#6b6357]">
                   Lembrete diário programado para {notifyDailyTime}. Resumo
@@ -1715,7 +1599,7 @@ export default function Configuracoes() {
       ) : null}
 
       {activeTab === "seguranca" ? (
-        <section className="rounded-lg border border-[#e6dbc9] bg-[#fffaf2] p-4 sm:p-6">
+        <section className="rounded-lg border border-[#e6dbc9] bg-[#fffaf2] p-3 sm:p-6">
           <div className="space-y-8">
             <div>
               <div className="flex items-center gap-2 text-sm font-semibold text-[#4b4337]">
@@ -1732,7 +1616,7 @@ export default function Configuracoes() {
                 Acesso e senha
               </div>
               <div className="mt-3 grid gap-3 text-sm text-[#4b4337]">
-                <div className="w-full max-w-sm">
+                <div className="w-full sm:max-w-sm">
                   <label className="text-xs font-semibold text-[#6b6357]">
                     Senha atual
                   </label>
@@ -1750,7 +1634,7 @@ export default function Configuracoes() {
                     Esqueci minha senha
                   </button>
                 </div>
-                <div className="w-full max-w-sm">
+                <div className="w-full sm:max-w-sm">
                   <label className="text-xs font-semibold text-[#6b6357]">
                     Nova senha
                   </label>
@@ -1762,7 +1646,7 @@ export default function Configuracoes() {
                     className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-base text-[#1f1c18] disabled:bg-[#fdf8f1] disabled:text-[#6b6357]"
                   />
                 </div>
-                <div className="w-full max-w-sm">
+                <div className="w-full sm:max-w-sm">
                   <label className="text-xs font-semibold text-[#6b6357]">
                     Confirmar senha
                   </label>
@@ -1802,10 +1686,10 @@ export default function Configuracoes() {
                 Sessões ativas
               </div>
               <div className="mt-3 space-y-3 text-sm text-[#4b4337]">
-                <div className="w-full max-w-sm rounded-md border border-[#efe2d1] bg-[#fdf8f1] px-4 py-3">
+                <div className="w-full sm:max-w-sm rounded-md border border-[#efe2d1] bg-[#fdf8f1] px-4 py-3">
                   São Paulo · Chrome · Último acesso hoje
                 </div>
-                <div className="w-full max-w-sm rounded-md border border-[#efe2d1] bg-[#fdf8f1] px-4 py-3">
+                <div className="w-full sm:max-w-sm rounded-md border border-[#efe2d1] bg-[#fdf8f1] px-4 py-3">
                   Salvador · Safari · Último acesso ontem
                 </div>
               </div>
@@ -1832,7 +1716,7 @@ export default function Configuracoes() {
                 Segurança adicional
               </div>
               <div className="mt-3 space-y-3 text-sm text-[#4b4337]">
-                <div className="w-full max-w-sm">
+                <div className="w-full sm:max-w-sm">
                   <label className="text-xs font-semibold text-[#6b6357]">
                     Autenticação em duas etapas
                   </label>
@@ -1845,7 +1729,7 @@ export default function Configuracoes() {
                     <option>Inativo</option>
                   </select>
                 </div>
-                <div className="w-full max-w-sm">
+                <div className="w-full sm:max-w-sm">
                   <label className="text-xs font-semibold text-[#6b6357]">
                     E-mail de recuperação
                   </label>
@@ -1869,7 +1753,7 @@ export default function Configuracoes() {
       ) : null}
 
       {activeTab === "privacidade" ? (
-        <section className="rounded-lg border border-[#e6dbc9] bg-[#fffaf2] p-4 sm:p-6">
+        <section className="rounded-lg border border-[#e6dbc9] bg-[#fffaf2] p-3 sm:p-6">
           <div className="space-y-4 text-sm text-[#4b4337]">
             <div className="flex items-center gap-2 text-sm font-semibold text-[#4b4337]">
               <svg
@@ -1884,7 +1768,7 @@ export default function Configuracoes() {
               </svg>
               Privacidade
             </div>
-            <label className="flex w-full max-w-sm items-center gap-3 rounded-md border border-[#efe2d1] bg-[#fdf8f1] px-4 py-3">
+            <label className="flex w-full sm:max-w-sm items-center gap-3 rounded-md border border-[#efe2d1] bg-[#fdf8f1] px-4 py-3">
               <input
                 type="checkbox"
                 className="h-4 w-4"
@@ -1894,7 +1778,7 @@ export default function Configuracoes() {
               />
               Exportar todos os dados
             </label>
-            <label className="flex w-full max-w-sm items-center gap-3 rounded-md border border-[#efe2d1] bg-[#fdf8f1] px-4 py-3">
+            <label className="flex w-full sm:max-w-sm items-center gap-3 rounded-md border border-[#efe2d1] bg-[#fdf8f1] px-4 py-3">
               <input
                 type="checkbox"
                 className="h-4 w-4"
@@ -1923,7 +1807,7 @@ export default function Configuracoes() {
       ) : null}
 
       {activeTab === "planos" ? (
-        <section className="rounded-lg border border-[#e6dbc9] bg-[#fffaf2] p-4 sm:p-6">
+        <section className="rounded-lg border border-[#e6dbc9] bg-[#fffaf2] p-3 sm:p-6">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
               <p className="text-xs font-semibold uppercase text-[#6b6357]">
@@ -2023,7 +1907,7 @@ export default function Configuracoes() {
               Adicionar matéria
             </h3>
             <p className="mt-2 text-sm text-[#5f574a]">
-              A matéria será vinculada ao tipo de conta atual.
+              Essa matéria ficará disponível na sua conta.
             </p>
             <div className="mt-4">
               <label className="text-xs font-semibold text-[#6b6357]">
@@ -2039,15 +1923,6 @@ export default function Configuracoes() {
             </div>
             <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-end">
               <button
-                className="rounded-md border border-[#e2d6c4] bg-[#f0e6d9] px-4 py-2 text-sm font-semibold min-h-[44px] text-[#4b4337]"
-                onClick={() => {
-                  setNovaMateria("");
-                  setShowMateriaModal(false);
-                }}
-              >
-                Cancelar
-              </button>
-              <button
                 className="rounded-md bg-[#1f5b4b] px-4 py-2 text-sm font-semibold min-h-[44px] text-[#fffaf2] disabled:cursor-not-allowed disabled:bg-[#9fbfb5]"
                 disabled={!novaMateria.trim()}
                 onClick={async () => {
@@ -2059,11 +1934,10 @@ export default function Configuracoes() {
                     .from("subjects")
                     .insert({
                       name: trimmed,
-                      study_type: accountType,
                       is_default: false,
                       owner_user_id: userId,
                     })
-                    .select("id,name,study_type,is_default")
+                    .select("id,name,is_default")
                     .single();
 
                   if (error || !createdSubject) {
@@ -2096,7 +1970,6 @@ export default function Configuracoes() {
                     {
                       id: createdSubject.id,
                       label: createdSubject.name,
-                      type: createdSubject.study_type,
                       isDefault: createdSubject.is_default,
                     },
                   ]);
@@ -2110,6 +1983,15 @@ export default function Configuracoes() {
                 }}
               >
                 Salvar matéria
+              </button>
+              <button
+                className="rounded-md border border-[#e1e1e1] bg-[#f3f3f3] px-4 py-2 text-sm font-semibold min-h-[44px] text-[#6b6357]"
+                onClick={() => {
+                  setNovaMateria("");
+                  setShowMateriaModal(false);
+                }}
+              >
+                Cancelar
               </button>
             </div>
           </div>
@@ -2138,16 +2020,6 @@ export default function Configuracoes() {
               />
             </div>
             <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-end">
-              <button
-                className="rounded-md border border-[#e2d6c4] bg-[#f0e6d9] px-4 py-2 text-sm font-semibold min-h-[44px] text-[#4b4337]"
-                onClick={() => {
-                  setShowEditMateriaModal(false);
-                  setMateriaBeingEdited(null);
-                  setEditMateriaName("");
-                }}
-              >
-                Cancelar
-              </button>
               <button
                 className="rounded-md bg-[#1f5b4b] px-4 py-2 text-sm font-semibold min-h-[44px] text-[#fffaf2] disabled:cursor-not-allowed disabled:bg-[#9fbfb5]"
                 disabled={!editMateriaName.trim()}
@@ -2200,6 +2072,16 @@ export default function Configuracoes() {
               >
                 Salvar alterações
               </button>
+              <button
+                className="rounded-md border border-[#e1e1e1] bg-[#f3f3f3] px-4 py-2 text-sm font-semibold min-h-[44px] text-[#6b6357]"
+                onClick={() => {
+                  setShowEditMateriaModal(false);
+                  setMateriaBeingEdited(null);
+                  setEditMateriaName("");
+                }}
+              >
+                Cancelar
+              </button>
             </div>
           </div>
         </div>
@@ -2223,15 +2105,6 @@ export default function Configuracoes() {
               novamente quando precisar.
             </div>
             <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-end">
-              <button
-                className="rounded-md border border-[#e2d6c4] bg-[#f0e6d9] px-4 py-2 text-sm font-semibold min-h-[44px] text-[#4b4337]"
-                onClick={() => {
-                  setShowDeleteMateriaModal(false);
-                  setMateriaToDelete(null);
-                }}
-              >
-                Cancelar
-              </button>
               <button
                 className="rounded-md bg-[#9d4b3b] px-4 py-2 text-sm font-semibold min-h-[44px] text-[#fffaf2]"
                 onClick={async () => {
@@ -2281,6 +2154,15 @@ export default function Configuracoes() {
                 }}
               >
                 Confirmar remoção
+              </button>
+              <button
+                className="rounded-md border border-[#e1e1e1] bg-[#f3f3f3] px-4 py-2 text-sm font-semibold min-h-[44px] text-[#6b6357]"
+                onClick={() => {
+                  setShowDeleteMateriaModal(false);
+                  setMateriaToDelete(null);
+                }}
+              >
+                Cancelar
               </button>
             </div>
           </div>
@@ -2361,19 +2243,6 @@ export default function Configuracoes() {
               </div>
             </div>
             <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-end">
-              <button
-                className="cursor-pointer rounded-md border border-[#e2d6c4] bg-[#f0e6d9] px-4 py-2 text-sm font-semibold min-h-[44px] text-[#4b4337]"
-                onClick={() => {
-                  setShowTemplateModal(false);
-                  setTemplateName("");
-                  setTemplateCadence([1, 7, 15]);
-                  setCadenceInput("");
-                  setTemplateMode("create");
-                  setTemplateBeingEdited(null);
-                }}
-              >
-                Cancelar
-              </button>
               <button
                 className="cursor-pointer rounded-md bg-[#1f5b4b] px-4 py-2 text-sm font-semibold min-h-[44px] text-[#fffaf2] disabled:cursor-not-allowed disabled:bg-[#9fbfb5]"
                 disabled={!templateName.trim() || templateCadence.length === 0}
@@ -2498,6 +2367,19 @@ export default function Configuracoes() {
                   ? "Salvar alterações"
                   : "Salvar template"}
               </button>
+              <button
+                className="cursor-pointer rounded-md border border-[#e1e1e1] bg-[#f3f3f3] px-4 py-2 text-sm font-semibold min-h-[44px] text-[#6b6357]"
+                onClick={() => {
+                  setShowTemplateModal(false);
+                  setTemplateName("");
+                  setTemplateCadence([1, 7, 15]);
+                  setCadenceInput("");
+                  setTemplateMode("create");
+                  setTemplateBeingEdited(null);
+                }}
+              >
+                Cancelar
+              </button>
             </div>
           </div>
         </div>
@@ -2521,15 +2403,6 @@ export default function Configuracoes() {
               anteriores seguirão o template usado no momento do estudo.
             </div>
             <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-end">
-              <button
-                className="cursor-pointer rounded-md border border-[#e2d6c4] bg-[#f0e6d9] px-4 py-2 text-sm font-semibold min-h-[44px] text-[#4b4337]"
-                onClick={() => {
-                  setShowActivateModal(false);
-                  setTemplateToActivate(null);
-                }}
-              >
-                Cancelar
-              </button>
               <button
                 className="cursor-pointer rounded-md bg-[#1f5b4b] px-4 py-2 text-sm font-semibold min-h-[44px] text-[#fffaf2]"
                 onClick={async () => {
@@ -2596,6 +2469,15 @@ export default function Configuracoes() {
               >
                 Confirmar ativação
               </button>
+              <button
+                className="cursor-pointer rounded-md border border-[#e1e1e1] bg-[#f3f3f3] px-4 py-2 text-sm font-semibold min-h-[44px] text-[#6b6357]"
+                onClick={() => {
+                  setShowActivateModal(false);
+                  setTemplateToActivate(null);
+                }}
+              >
+                Cancelar
+              </button>
             </div>
           </div>
         </div>
@@ -2616,16 +2498,16 @@ export default function Configuracoes() {
             </div>
             <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-end">
               <button
-                className="rounded-md border border-[#e2d6c4] bg-[#f0e6d9] px-4 py-2 text-sm font-semibold min-h-[44px] text-[#4b4337]"
-                onClick={() => setShowForgotModal(false)}
-              >
-                Cancelar
-              </button>
-              <button
                 className="rounded-md bg-[#1f5b4b] px-4 py-2 text-sm font-semibold min-h-[44px] text-[#fffaf2]"
                 onClick={() => setShowForgotModal(false)}
               >
                 Enviar link
+              </button>
+              <button
+                className="rounded-md border border-[#e1e1e1] bg-[#f3f3f3] px-4 py-2 text-sm font-semibold min-h-[44px] text-[#6b6357]"
+                onClick={() => setShowForgotModal(false)}
+              >
+                Cancelar
               </button>
             </div>
           </div>

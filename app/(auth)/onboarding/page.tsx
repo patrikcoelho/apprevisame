@@ -23,10 +23,8 @@ type TemplateRow = {
   cadence_days: number[];
 };
 
-const studyTypeOptions = ["Concurso", "Faculdade"] as const;
 const bestTimeOptions = ["Manhã", "Tarde", "Noite"] as const;
 
-type StudyType = (typeof studyTypeOptions)[number];
 type BestTime = (typeof bestTimeOptions)[number];
 
 export default function OnboardingPage() {
@@ -35,8 +33,7 @@ export default function OnboardingPage() {
   const { addToast } = useToast();
   const [step, setStep] = useState(1);
   const [name, setName] = useState("");
-  const [objective, setObjective] = useState("Concurso da área fiscal");
-  const [studyType, setStudyType] = useState<StudyType>("Concurso");
+  const [objective, setObjective] = useState("Aprovar na próxima prova");
   const [bestTime, setBestTime] = useState<BestTime>("Noite");
   const [availableSubjects, setAvailableSubjects] = useState<string[]>([]);
   const [selectedSubjects, setSelectedSubjects] = useState<string[]>([]);
@@ -79,16 +76,10 @@ export default function OnboardingPage() {
   }, [name, router, supabase]);
 
   useEffect(() => {
-    setSelectedSubjects([]);
-    setSelectedTemplate("");
-  }, [studyType]);
-
-  useEffect(() => {
     const loadDefaults = async () => {
       const { data: subjectsData } = await supabase
         .from("subjects")
         .select("id,name")
-        .eq("study_type", studyType)
         .eq("is_default", true)
         .order("name", { ascending: true });
 
@@ -122,7 +113,7 @@ export default function OnboardingPage() {
     };
 
     loadDefaults();
-  }, [studyType, supabase]);
+  }, [supabase]);
 
   const toggleSubject = (subject: string) => {
     setSelectedSubjects((prev) =>
@@ -165,7 +156,6 @@ export default function OnboardingPage() {
       full_name: name,
       objective,
       best_time: bestTime,
-      study_type: studyType,
       plan: "Gratuito",
       active_template_id: activeTemplateId,
     });
@@ -183,8 +173,7 @@ export default function OnboardingPage() {
 
     const { data: subjectsData } = await supabase
       .from("subjects")
-      .select("id,name,is_default")
-      .eq("study_type", studyType);
+      .select("id,name,is_default");
 
     const subjectMap = new Map(
       ((subjectsData as SubjectRow[] | null) ?? []).map((subject: SubjectRow) => [
@@ -207,7 +196,6 @@ export default function OnboardingPage() {
         .from("subjects")
         .insert({
           name: subjectName,
-          study_type: studyType,
           is_default: false,
           owner_user_id: user.id,
         })
@@ -298,28 +286,8 @@ export default function OnboardingPage() {
               value={objective}
               onChange={(event) => setObjective(event.target.value)}
               className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-base text-[#1f1c18]"
-              placeholder="Ex: Concurso da área fiscal"
+              placeholder="Ex: Aprovação na próxima prova"
             />
-          </div>
-          <div>
-            <label className="text-xs font-semibold text-[#6b6357]">
-              Tipo de estudo
-            </label>
-            <select
-              className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-base text-[#1f1c18]"
-              value={studyType}
-              onChange={(event) =>
-                setStudyType(event.target.value as StudyType)
-              }
-            >
-              {studyTypeOptions.map((option) => (
-                <option key={option} value={option}>
-                  {option === "Concurso"
-                    ? "Concurso público"
-                    : "Vestibular/Faculdade"}
-                </option>
-              ))}
-            </select>
           </div>
           <div>
             <label className="text-xs font-semibold text-[#6b6357]">
@@ -346,7 +314,7 @@ export default function OnboardingPage() {
         <div className="space-y-4">
           <div>
             <p className="text-sm font-semibold text-[#1f1c18]">
-              Matérias recomendadas para {studyType.toLowerCase()}
+              Matérias recomendadas para começar
             </p>
             <p className="mt-1 text-xs text-[#6b6357]">
               Selecione as matérias que deseja acompanhar.
@@ -552,8 +520,7 @@ export default function OnboardingPage() {
           <div className="rounded-md border border-[#efe2d1] bg-[#fdf8f1] px-4 py-3 text-xs text-[#6b6357]">
             <p className="font-semibold text-[#4b4337]">Resumo final</p>
             <p className="mt-1">
-              {studyType} · {selectedSubjects.length} matérias · Template{" "}
-              {selectedTemplate}
+              {selectedSubjects.length} matérias · Template {selectedTemplate}
             </p>
             <p className="mt-1">Lembrete diário às {dailyTime}.</p>
           </div>

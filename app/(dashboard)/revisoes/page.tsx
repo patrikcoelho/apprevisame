@@ -62,21 +62,11 @@ export default function Revisoes() {
       const start = new Date(currentYear, currentMonth, 1);
       const end = new Date(currentYear, currentMonth + 1, 0, 23, 59, 59);
 
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("study_type")
-        .eq("id", user.id)
-        .maybeSingle();
-
-      const resolvedStudyType =
-        (profile?.study_type as "Concurso" | "Faculdade" | null) ?? "Concurso";
-
       const { data } = await supabase
         .from("reviews")
         .select("id,due_at,study:studies(topic,subject:subjects(name))")
         .eq("status", "pendente")
         .eq("user_id", user.id)
-        .eq("study.subject.study_type", resolvedStudyType)
         .gte("due_at", start.toISOString())
         .lte("due_at", end.toISOString());
 
@@ -168,7 +158,7 @@ export default function Revisoes() {
         </div>
       </header>
 
-      <section className="rounded-lg border border-[#e6dbc9] bg-[#fffaf2] p-4 sm:p-6">
+      <section className="rounded-lg border border-[#e6dbc9] bg-[#fffaf2] p-3 sm:p-6">
         <div className="flex flex-col gap-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <button
@@ -250,13 +240,11 @@ export default function Revisoes() {
                         : ""
                     }`}
                   >
-                    <div className="text-xs font-semibold sm:text-sm">
+                    <div className="absolute left-2 top-2 text-xs font-semibold sm:left-2.5 sm:top-2.5 sm:text-sm">
                       {cell.date.getDate()}
                     </div>
                     {count > 0 ? (
-                      <span className="absolute bottom-1 right-1 flex h-6 min-w-[24px] items-center justify-center rounded-full bg-[#1f5b4b] px-1 text-[11px] font-semibold text-white sm:bottom-2 sm:right-2">
-                        {count}
-                      </span>
+                      <span className="absolute bottom-1 right-1 h-2.5 w-2.5 rounded-full bg-[#1f5b4b] sm:bottom-2 sm:right-2 sm:h-3 sm:w-3" />
                     ) : null}
                   </button>
                 );

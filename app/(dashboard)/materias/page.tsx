@@ -6,7 +6,6 @@ import { createClient } from "@/lib/supabase/client";
 type SubjectItem = {
   id: string;
   name: string;
-  study_type: "Concurso" | "Faculdade";
 };
 
 type SubjectLinkRow = {
@@ -19,31 +18,17 @@ const isNonNullable = <T,>(value: T | null | undefined): value is T =>
 export default function Materias() {
   const supabase = useMemo(() => createClient(), []);
   const [subjects, setSubjects] = useState<SubjectItem[]>([]);
-  const [accountType, setAccountType] = useState<"Concurso" | "Faculdade">(
-    "Concurso"
-  );
 
   const loadSubjects = useCallback(
     async (userId: string) => {
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("study_type")
-        .eq("id", userId)
-        .maybeSingle();
-
-      const resolvedType =
-        (profile?.study_type as "Concurso" | "Faculdade" | null) ?? "Concurso";
-      setAccountType(resolvedType);
-
       const { data } = await supabase
         .from("user_subjects")
-        .select("subject:subjects(id,name,study_type)")
+        .select("subject:subjects(id,name)")
         .eq("user_id", userId);
 
       const mapped = ((data as SubjectLinkRow[] | null) ?? [])
         .map((item: SubjectLinkRow) => item.subject)
-        .filter(isNonNullable)
-        .filter((subject) => subject.study_type === resolvedType);
+        .filter(isNonNullable);
 
       setSubjects(mapped);
     },
@@ -106,11 +91,6 @@ export default function Materias() {
     };
   }, [refreshSubjects]);
 
-  const materiasAtivas = useMemo(
-    () => subjects.filter((item) => item.study_type === accountType),
-    [subjects, accountType]
-  );
-
   return (
     <div className="space-y-6">
       <header className="flex flex-col gap-3">
@@ -123,41 +103,15 @@ export default function Materias() {
       </header>
 
       <section className="grid gap-6">
-        <div
-          className={`rounded-lg border p-4 sm:p-6 ${
-            accountType === "Concurso"
-              ? "border-[#e6dbc9] bg-[#fffaf2]"
-              : "border-[#d8eadf] bg-[#e9f4ef]"
-          }`}
-        >
-          <h2
-            className={`text-lg font-semibold ${
-              accountType === "Concurso"
-                ? "text-[#1f1c18]"
-                : "text-[#1f3f35]"
-            }`}
-          >
-            {accountType === "Concurso"
-              ? "Concurso público"
-              : "Vestibular/Faculdade"}
+        <div className="rounded-lg border border-[#e6dbc9] bg-[#fffaf2] p-3 sm:p-6">
+          <h2 className="text-lg font-semibold text-[#1f1c18]">
+            Matérias cadastradas
           </h2>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            {materiasAtivas.length === 0 ? (
-              <div
-                className={`flex flex-col gap-3 rounded-md border px-4 py-3 text-sm ${
-                  accountType === "Concurso"
-                    ? "border-[#e2d6c4] bg-[#fbf7f2] text-[#4b4337]"
-                    : "border-[#b7d4c8] bg-[#f2fbf7] text-[#2f5d4e]"
-                }`}
-              >
+            {subjects.length === 0 ? (
+              <div className="flex flex-col gap-3 rounded-md border border-[#e2d6c4] bg-[#fbf7f2] px-4 py-3 text-sm text-[#4b4337]">
                 <div className="flex items-center gap-3">
-                  <span
-                    className={`flex h-9 w-9 items-center justify-center rounded-full border bg-white ${
-                      accountType === "Concurso"
-                        ? "border-[#e2d6c4] text-[#4b4337]"
-                        : "border-[#b7d4c8] text-[#2f5d4e]"
-                    }`}
-                  >
+                  <span className="flex h-9 w-9 items-center justify-center rounded-full border border-[#e2d6c4] bg-white text-[#4b4337]">
                     <svg
                       aria-hidden="true"
                       className="h-4 w-4"
@@ -189,14 +143,10 @@ export default function Materias() {
                 </div>
               </div>
             ) : (
-              materiasAtivas.map((item) => (
+              subjects.map((item) => (
                 <div
                   key={item.id}
-                  className={`rounded-md border px-4 py-3 text-sm ${
-                    accountType === "Concurso"
-                      ? "border-[#e2d6c4] bg-[#fdf8f1] text-[#4b4337]"
-                      : "border-[#b7d4c8] bg-[#f5fbf8] text-[#2f5d4e]"
-                  }`}
+                  className="rounded-md border border-[#e2d6c4] bg-[#fdf8f1] px-4 py-3 text-sm text-[#4b4337]"
                 >
                   {item.name}
                 </div>

@@ -4,8 +4,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/app/components/toast-provider";
 
-type StudyType = "Concurso" | "Faculdade";
-
 type SubjectOption = {
   id: string;
   label: string;
@@ -17,7 +15,6 @@ const isNonNullable = <T,>(value: T | null | undefined): value is T =>
 export default function Adicionar() {
   const supabase = createClient();
   const { addToast } = useToast();
-  const [studyType, setStudyType] = useState<StudyType>("Concurso");
   const [cadenceDays, setCadenceDays] = useState<number[]>([]);
   const [subjectId, setSubjectId] = useState("");
   const [subjects, setSubjects] = useState<SubjectOption[]>([]);
@@ -40,12 +37,9 @@ export default function Adicionar() {
 
       const { data: profile } = await supabase
         .from("profiles")
-        .select("study_type,active_template_id")
+        .select("active_template_id")
         .eq("id", user.id)
         .maybeSingle();
-
-      const profileType = (profile?.study_type as StudyType) ?? "Concurso";
-      setStudyType(profileType);
 
       const { data: templateData } = await supabase
         .from("templates")
@@ -68,18 +62,17 @@ export default function Adicionar() {
 
       const { data: linkedSubjects } = await supabase
         .from("user_subjects")
-        .select("subject:subjects(id,name,study_type)")
+        .select("subject:subjects(id,name)")
         .eq("user_id", user.id);
 
       type LinkedSubject = {
-        subject: { id: string; name: string; study_type: StudyType } | null;
+        subject: { id: string; name: string } | null;
       };
 
       const mapped =
         (linkedSubjects as LinkedSubject[] | null)
           ?.map((item: LinkedSubject) => item.subject)
           .filter(isNonNullable)
-          .filter((subject) => subject.study_type === profileType)
           .map((subject) => ({
             id: subject.id,
             label: subject.name,
@@ -237,7 +230,7 @@ export default function Adicionar() {
       </header>
 
       <section className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
-        <div className="space-y-4 rounded-lg border border-[#e6dbc9] bg-[#fffaf2] p-4 sm:p-6">
+        <div className="space-y-4 rounded-lg border border-[#e6dbc9] bg-[#fffaf2] p-3 sm:p-6">
           <div className="grid gap-4">
             <div className="space-y-2">
               <label className="text-xs font-semibold uppercase text-[#6b6357]">
@@ -439,7 +432,7 @@ export default function Adicionar() {
           ) : null}
         </div>
 
-        <aside className="space-y-4 rounded-lg border border-[#e6dbc9] bg-[#fffaf2] p-4 sm:p-6">
+        <aside className="space-y-4 rounded-lg border border-[#e6dbc9] bg-[#fffaf2] p-3 sm:p-6">
           <div>
             <p className="text-xs font-semibold uppercase text-[#6b6357]">
               Prévia de revisões
@@ -517,16 +510,6 @@ export default function Adicionar() {
             <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-end">
               <button
                 type="button"
-                className="min-h-[44px] rounded-md border border-[#e2d6c4] bg-[#f0e6d9] px-4 py-2 text-sm font-semibold text-[#4b4337]"
-                onClick={() => {
-                  setNewSubject("");
-                  setShowAddSubject(false);
-                }}
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
                 className="min-h-[44px] rounded-md bg-[#1f5b4b] px-4 py-2 text-sm font-semibold text-[#fffaf2] disabled:cursor-not-allowed disabled:bg-[#9fbfb5]"
                 disabled={!newSubject.trim()}
                 onClick={async () => {
@@ -548,7 +531,6 @@ export default function Adicionar() {
                     .from("subjects")
                     .insert({
                       name: trimmed,
-                      study_type: studyType,
                       is_default: false,
                       owner_user_id: user.id,
                     })
@@ -597,6 +579,16 @@ export default function Adicionar() {
                 }}
               >
                 Salvar matéria
+              </button>
+              <button
+                type="button"
+                className="min-h-[44px] rounded-md border border-[#e1e1e1] bg-[#f3f3f3] px-4 py-2 text-sm font-semibold text-[#6b6357]"
+                onClick={() => {
+                  setNewSubject("");
+                  setShowAddSubject(false);
+                }}
+              >
+                Cancelar
               </button>
             </div>
           </div>

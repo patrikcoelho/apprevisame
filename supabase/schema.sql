@@ -1,17 +1,10 @@
 create extension if not exists "pgcrypto";
 
-do $$ begin
-  if not exists (select 1 from pg_type where typname = 'study_type') then
-    create type study_type as enum ('Concurso', 'Faculdade');
-  end if;
-end $$;
-
 create table if not exists profiles (
   id uuid primary key references auth.users on delete cascade,
   full_name text not null,
   objective text,
   best_time text,
-  study_type study_type not null default 'Concurso',
   plan text not null default 'Gratuito',
   active_template_id uuid,
   avatar_url text,
@@ -33,18 +26,17 @@ create table if not exists profiles (
 create table if not exists subjects (
   id uuid primary key default gen_random_uuid(),
   name text not null,
-  study_type study_type not null,
   is_default boolean not null default false,
   owner_user_id uuid references auth.users on delete cascade,
   created_at timestamptz not null default now()
 );
 
 create unique index if not exists subjects_default_unique
-  on subjects (lower(name), study_type)
+  on subjects (lower(name))
   where owner_user_id is null;
 
 create unique index if not exists subjects_custom_unique
-  on subjects (lower(name), study_type, owner_user_id)
+  on subjects (lower(name), owner_user_id)
   where owner_user_id is not null;
 
 create table if not exists user_subjects (
