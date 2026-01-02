@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/app/components/toast-provider";
+import HorizontalTabsNoArrows from "@/app/components/horizontal-tabs-no-arrows";
 
 type SubjectItem = {
   id: string;
@@ -56,18 +57,7 @@ type TemplateRow = {
   owner_user_id: string | null;
 };
 
-const prefModeOptions = ["Não definido", "Claro", "Escuro"] as const;
-const prefLanguageOptions = [
-  "Não definido",
-  "Português (BR)",
-  "English (US)",
-] as const;
-const prefDateFormatOptions = [
-  "Não definido",
-  "DD/MM/AAAA",
-  "MM/DD/AAAA",
-  "AAAA-MM-DD",
-] as const;
+const prefModeOptions = ["Automático", "Claro", "Escuro"] as const;
 const notifyWeeklyDayOptions = [
   "Segunda",
   "Quarta",
@@ -78,18 +68,12 @@ const notifyPriorityOptions = ["Baixo", "Médio", "Alto"] as const;
 const materiaFilterOptions = ["Todas", "Ativas", "Inativas"] as const;
 
 type PrefMode = (typeof prefModeOptions)[number];
-type PrefLanguage = (typeof prefLanguageOptions)[number];
-type PrefDateFormat = (typeof prefDateFormatOptions)[number];
 type NotifyWeeklyDay = (typeof notifyWeeklyDayOptions)[number];
 type NotifyPriority = (typeof notifyPriorityOptions)[number];
 type MateriaFilter = (typeof materiaFilterOptions)[number];
 
 const isPrefMode = (value?: string | null): value is PrefMode =>
   Boolean(value && prefModeOptions.includes(value as PrefMode));
-const isPrefLanguage = (value?: string | null): value is PrefLanguage =>
-  Boolean(value && prefLanguageOptions.includes(value as PrefLanguage));
-const isPrefDateFormat = (value?: string | null): value is PrefDateFormat =>
-  Boolean(value && prefDateFormatOptions.includes(value as PrefDateFormat));
 const isNotifyWeeklyDay = (value?: string | null): value is NotifyWeeklyDay =>
   Boolean(value && notifyWeeklyDayOptions.includes(value as NotifyWeeklyDay));
 const isNotifyPriority = (value?: string | null): value is NotifyPriority =>
@@ -229,18 +213,28 @@ export default function Configuracoes() {
   const [profileName, setProfileName] = useState("");
   const [profileAvatar, setProfileAvatar] = useState("PM");
   const [profileImageUrl, setProfileImageUrl] = useState<string | null>(null);
+  const [pendingAvatarFile, setPendingAvatarFile] = useState<File | null>(null);
+  const [pendingAvatarPreview, setPendingAvatarPreview] = useState<
+    string | null
+  >(null);
+  const [profileSnapshot, setProfileSnapshot] = useState<{
+    name: string;
+    imageUrl: string | null;
+  } | null>(null);
   const [avatarStatus, setAvatarStatus] = useState<
     "idle" | "saving" | "saved" | "error"
   >("idle");
   const [editingPreferences, setEditingPreferences] = useState(false);
-  const [prefMode, setPrefMode] = useState<PrefMode>("Não definido");
-  const [prefLanguage, setPrefLanguage] =
-    useState<PrefLanguage>("Não definido");
-  const [prefDateFormat, setPrefDateFormat] =
-    useState<PrefDateFormat>("Não definido");
+  const [prefMode, setPrefMode] = useState<PrefMode>("Automático");
+  const [preferencesSnapshot, setPreferencesSnapshot] =
+    useState<PrefMode | null>(null);
   const [editingSecurity, setEditingSecurity] = useState(false);
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [securitySnapshot, setSecuritySnapshot] = useState<{
+    newPassword: string;
+    confirmPassword: string;
+  } | null>(null);
   const [editingNotifications, setEditingNotifications] = useState(false);
   const [notifyEmail, setNotifyEmail] = useState(true);
   const [notifyApp, setNotifyApp] = useState(false);
@@ -253,9 +247,24 @@ export default function Configuracoes() {
   const [notifyOverdueTop, setNotifyOverdueTop] = useState(true);
   const [notifyPriority, setNotifyPriority] =
     useState<NotifyPriority>("Alto");
+  const [notificationsSnapshot, setNotificationsSnapshot] = useState<{
+    notifyEmail: boolean;
+    notifyApp: boolean;
+    notifyDaily: boolean;
+    notifyDailyTime: string;
+    notifyWeekly: boolean;
+    notifyWeeklyDay: NotifyWeeklyDay;
+    notifyWeeklyTime: string;
+    notifyOverdueTop: boolean;
+    notifyPriority: NotifyPriority;
+  } | null>(null);
   const [editingPrivacy, setEditingPrivacy] = useState(false);
   const [confirmExport, setConfirmExport] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [privacySnapshot, setPrivacySnapshot] = useState<{
+    confirmExport: boolean;
+    confirmDelete: boolean;
+  } | null>(null);
   const [materiaSearch, setMateriaSearch] = useState("");
   const [materiaFilter, setMateriaFilter] =
     useState<MateriaFilter>("Todas");
@@ -303,18 +312,40 @@ export default function Configuracoes() {
   const resolveAvatarUrl = useCallback(
     async (avatarUrl: string | null) => {
       if (!avatarUrl) return null;
-      if (avatarUrl.startsWith("http")) return avatarUrl;
-      const { data } = await supabase.storage
+      if (avatarUrl.startsWith("http")) {
+        const rawPath = extractAvatarPath(avatarUrl);
+        if (!rawPath) return avatarUrl;
+        const { data, error } = await supabase.storage
+          .from("avatars")
+          .createSignedUrl(rawPath, 60 * 60);
+        if (!error && data?.signedUrl) return data.signedUrl;
+        return avatarUrl;
+      }
+      const { data, error } = await supabase.storage
         .from("avatars")
         .createSignedUrl(avatarUrl, 60 * 60);
-      if (data?.signedUrl) return data.signedUrl;
-      const { data: publicData } = supabase.storage
-        .from("avatars")
-        .getPublicUrl(avatarUrl);
-      return publicData.publicUrl ?? null;
+      if (error || !data?.signedUrl) return null;
+      return data.signedUrl;
     },
     [supabase]
   );
+
+  const extractAvatarPath = (avatarUrl: string) => {
+    if (!avatarUrl.startsWith("http")) return avatarUrl;
+    const signedIdx = avatarUrl.indexOf("/storage/v1/object/sign/avatars/");
+    if (signedIdx !== -1) {
+      return avatarUrl
+        .slice(signedIdx + "/storage/v1/object/sign/avatars/".length)
+        .split("?")[0];
+    }
+    const publicIdx = avatarUrl.indexOf("/storage/v1/object/public/avatars/");
+    if (publicIdx !== -1) {
+      return avatarUrl
+        .slice(publicIdx + "/storage/v1/object/public/avatars/".length)
+        .split("?")[0];
+    }
+    return null;
+  };
 
   const loadProfile = useCallback(async () => {
     const {
@@ -336,13 +367,22 @@ export default function Configuracoes() {
 
     const { data: profile } = await supabase
       .from("profiles")
-      .select(
-        "full_name,plan,active_template_id,avatar_url,theme,language,date_format,notify_email,notify_app,notify_daily,notify_daily_time,notify_weekly,notify_weekly_day,notify_weekly_time,notify_overdue_top,notify_priority"
-      )
+      .select("*")
       .eq("id", resolvedUser.id)
       .maybeSingle();
 
     const typedProfile = profile as ProfileRow | null;
+
+    if (typedProfile?.avatar_url?.startsWith("http")) {
+      const normalizedPath = extractAvatarPath(typedProfile.avatar_url);
+      if (normalizedPath && normalizedPath !== typedProfile.avatar_url) {
+        await supabase
+          .from("profiles")
+          .update({ avatar_url: normalizedPath })
+          .eq("id", resolvedUser.id);
+        typedProfile.avatar_url = normalizedPath;
+      }
+    }
 
     const fallbackName =
       typedProfile?.full_name ||
@@ -367,15 +407,6 @@ export default function Configuracoes() {
       setActivePlan(typedProfile.plan === "Premium" ? "Premium" : "Gratuito");
     }
     setActiveTemplateId(typedProfile?.active_template_id ?? null);
-    if (isPrefMode(typedProfile?.theme)) {
-      setPrefMode(typedProfile.theme);
-    }
-    if (isPrefLanguage(typedProfile?.language)) {
-      setPrefLanguage(typedProfile.language);
-    }
-    if (isPrefDateFormat(typedProfile?.date_format)) {
-      setPrefDateFormat(typedProfile.date_format);
-    }
     if (typedProfile && typedProfile.notify_email !== null) {
       setNotifyEmail(Boolean(typedProfile.notify_email));
     }
@@ -680,48 +711,141 @@ export default function Configuracoes() {
     };
   }, [resolveAvatarUrl]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const stored = window.localStorage.getItem("revisame:theme") as PrefMode | null;
+    if (stored && isPrefMode(stored)) {
+      setPrefMode(stored);
+    }
+  }, []);
+
   const handleProfileToggle = async () => {
+    if (!editingProfile) {
+      setProfileSnapshot({
+        name: profileName,
+        imageUrl: profileImageUrl,
+      });
+      setEditingProfile(true);
+      return;
+    }
     if (editingProfile) {
       const resolvedUserId = await resolveUserId();
       if (!resolvedUserId) return;
-      const { error } = await supabase.from("profiles").upsert({
+      const { error: profileError } = await supabase.from("profiles").upsert({
         id: resolvedUserId,
         full_name: profileName,
       });
-      if (error) {
+      if (profileError) {
         addToast({
           variant: "error",
           title: "Não foi possível salvar o perfil.",
-          description: "Tente novamente em instantes.",
+          description: profileError.message || "Tente novamente em instantes.",
         });
         return;
       }
+
+      if (pendingAvatarFile) {
+        setAvatarStatus("saving");
+        const inferredType = pendingAvatarFile.type || "image/jpeg";
+        const rawExtension =
+          inferredType.split("/")[1] ||
+          pendingAvatarFile.name.split(".").pop() ||
+          "jpg";
+        const extension = rawExtension.split(";")[0];
+        const filePath = `${resolvedUserId}/avatar.${extension}`;
+        const { error: uploadError } = await supabase.storage
+          .from("avatars")
+          .upload(filePath, pendingAvatarFile, {
+            upsert: true,
+            contentType: inferredType,
+            cacheControl: "3600",
+          });
+        if (uploadError) {
+          setAvatarStatus("error");
+          addToast({
+            variant: "error",
+            title: "Não foi possível enviar a foto.",
+            description:
+              uploadError.message || "Tente novamente em instantes.",
+          });
+          console.error("Erro ao enviar avatar:", uploadError.message);
+          return;
+        }
+        const { error: updateError } = await supabase
+          .from("profiles")
+          .update({ avatar_url: filePath })
+          .eq("id", resolvedUserId);
+        if (updateError) {
+          setAvatarStatus("error");
+          addToast({
+            variant: "error",
+            title: "Não foi possível salvar a foto.",
+            description:
+              updateError.message || "Tente novamente em instantes.",
+          });
+          return;
+        }
+        const resolved = await resolveAvatarUrl(filePath);
+        if (resolved) {
+          setProfileImageUrl(resolved);
+        }
+        setPendingAvatarFile(null);
+        setPendingAvatarPreview(null);
+        setAvatarStatus("saved");
+      }
+
       addToast({
         variant: "success",
         title: "Perfil atualizado.",
         description: "Suas alterações foram salvas.",
       });
     }
-    setEditingProfile((prev) => !prev);
+    setEditingProfile(false);
+    setProfileSnapshot(null);
+  };
+
+  const handleProfileCancel = () => {
+    if (profileSnapshot) {
+      setProfileName(profileSnapshot.name);
+      setProfileImageUrl(profileSnapshot.imageUrl);
+    }
+    setPendingAvatarFile(null);
+    setPendingAvatarPreview(null);
+    setAvatarStatus("idle");
+    setEditingProfile(false);
+    setProfileSnapshot(null);
   };
 
   const handlePreferencesToggle = async () => {
+    if (!editingPreferences) {
+      setPreferencesSnapshot(prefMode);
+      setEditingPreferences(true);
+      return;
+    }
     if (editingPreferences) {
       const resolvedUserId = await resolveUserId();
       if (!resolvedUserId) return;
-      const { error } = await supabase.from("profiles").upsert({
-        id: resolvedUserId,
-        theme: prefMode === "Não definido" ? null : prefMode,
-        language: prefLanguage === "Não definido" ? null : prefLanguage,
-        date_format: prefDateFormat === "Não definido" ? null : prefDateFormat,
-      });
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          theme: prefMode === "Automático" ? null : prefMode,
+        })
+        .eq("id", resolvedUserId);
       if (error) {
         addToast({
           variant: "error",
           title: "Não foi possível salvar as preferências.",
-          description: "Tente novamente em instantes.",
+          description: error.message ?? "Tente novamente em instantes.",
         });
         return;
+      }
+      if (typeof window !== "undefined") {
+        const themeDetail = prefMode === "Automático" ? null : prefMode;
+        window.dispatchEvent(
+          new CustomEvent("revisame:theme-change", {
+            detail: { theme: themeDetail ?? "Automático" },
+          })
+        );
       }
       addToast({
         variant: "success",
@@ -729,10 +853,34 @@ export default function Configuracoes() {
         description: "As configurações foram atualizadas.",
       });
     }
-    setEditingPreferences((prev) => !prev);
+    setEditingPreferences(false);
+    setPreferencesSnapshot(null);
+  };
+
+  const handlePreferencesCancel = () => {
+    if (preferencesSnapshot) {
+      setPrefMode(preferencesSnapshot);
+    }
+    setEditingPreferences(false);
+    setPreferencesSnapshot(null);
   };
 
   const handleNotificationsToggle = async () => {
+    if (!editingNotifications) {
+      setNotificationsSnapshot({
+        notifyEmail,
+        notifyApp,
+        notifyDaily,
+        notifyDailyTime,
+        notifyWeekly,
+        notifyWeeklyDay,
+        notifyWeeklyTime,
+        notifyOverdueTop,
+        notifyPriority,
+      });
+      setEditingNotifications(true);
+      return;
+    }
     if (editingNotifications) {
       const resolvedUserId = await resolveUserId();
       if (!resolvedUserId) return;
@@ -762,8 +910,71 @@ export default function Configuracoes() {
         description: "Suas preferências foram salvas.",
       });
     }
-    setEditingNotifications((prev) => !prev);
+    setEditingNotifications(false);
+    setNotificationsSnapshot(null);
   };
+
+  const handleNotificationsCancel = () => {
+    if (notificationsSnapshot) {
+      setNotifyEmail(notificationsSnapshot.notifyEmail);
+      setNotifyApp(notificationsSnapshot.notifyApp);
+      setNotifyDaily(notificationsSnapshot.notifyDaily);
+      setNotifyDailyTime(notificationsSnapshot.notifyDailyTime);
+      setNotifyWeekly(notificationsSnapshot.notifyWeekly);
+      setNotifyWeeklyDay(notificationsSnapshot.notifyWeeklyDay);
+      setNotifyWeeklyTime(notificationsSnapshot.notifyWeeklyTime);
+      setNotifyOverdueTop(notificationsSnapshot.notifyOverdueTop);
+      setNotifyPriority(notificationsSnapshot.notifyPriority);
+    }
+    setEditingNotifications(false);
+    setNotificationsSnapshot(null);
+  };
+
+  const handleSecurityToggle = () => {
+    if (!editingSecurity) {
+      setSecuritySnapshot({ newPassword, confirmPassword });
+      setEditingSecurity(true);
+      return;
+    }
+    setEditingSecurity(false);
+    setSecuritySnapshot(null);
+  };
+
+  const handleSecurityCancel = () => {
+    if (securitySnapshot) {
+      setNewPassword(securitySnapshot.newPassword);
+      setConfirmPassword(securitySnapshot.confirmPassword);
+    } else {
+      setNewPassword("");
+      setConfirmPassword("");
+    }
+    setEditingSecurity(false);
+    setSecuritySnapshot(null);
+  };
+
+  const handlePrivacyToggle = () => {
+    if (!editingPrivacy) {
+      setPrivacySnapshot({ confirmExport, confirmDelete });
+      setEditingPrivacy(true);
+      return;
+    }
+    setEditingPrivacy(false);
+    setPrivacySnapshot(null);
+  };
+
+  const handlePrivacyCancel = () => {
+    if (privacySnapshot) {
+      setConfirmExport(privacySnapshot.confirmExport);
+      setConfirmDelete(privacySnapshot.confirmDelete);
+    }
+    setEditingPrivacy(false);
+    setPrivacySnapshot(null);
+  };
+
+  const editableFieldClass = (isEditing: boolean) =>
+    `mt-2 h-11 w-full rounded-md border px-3 text-base text-[#1f1c18] disabled:bg-[#fdf8f1] disabled:text-[#6b6357] ${
+      isEditing ? "border-[#1f5b4b] bg-[#fffaf2]" : "border-[#efe2d1] bg-white"
+    }`;
 
   const handlePlanChange = async (plan: "Gratuito" | "Premium") => {
     const resolvedUserId = await resolveUserId();
@@ -801,28 +1012,27 @@ export default function Configuracoes() {
         </div>
       </header>
 
-      <div className="relative w-full max-w-full overflow-hidden">
-        <nav className="flex w-full max-w-full items-center gap-2 overflow-x-auto rounded-lg border border-[#e6dbc9] bg-[#fffdf9] px-4 py-3 text-sm font-semibold text-[#4b4337]">
-          {tabs.map((item) => (
-            <button
-              key={item.value}
-              type="button"
-              onClick={() => setActiveTab(item.value)}
-              className={`whitespace-nowrap rounded-md px-3 py-2.5 ${
-                activeTab === item.value
-                  ? "bg-[#f0e6d9] text-[#1f3f35]"
-                  : "hover:bg-[#f6efe4]"
-              }`}
-            >
-              <span className="flex items-center gap-2">
-                {item.icon}
-                {item.label}
-              </span>
-            </button>
-          ))}
-        </nav>
-        <div className="pointer-events-none absolute right-0 top-0 h-full w-8 bg-gradient-to-l from-[#fffdf9] to-transparent md:hidden" />
-      </div>
+      <HorizontalTabsNoArrows
+        className="flex w-full max-w-full items-center gap-2 overflow-x-auto rounded-lg border border-[#e6dbc9] bg-[#fffdf9] px-4 py-3 text-sm font-semibold text-[#4b4337] pr-10 sm:pr-12"
+      >
+        {tabs.map((item) => (
+          <button
+            key={item.value}
+            type="button"
+            onClick={() => setActiveTab(item.value)}
+            className={`whitespace-nowrap rounded-md px-4 py-2.5 ${
+              activeTab === item.value
+                ? "bg-[#f0e6d9] text-[#1f3f35]"
+                : "hover:bg-[#f6efe4]"
+            }`}
+          >
+            <span className="flex items-center gap-2">
+              {item.icon}
+              {item.label}
+            </span>
+          </button>
+        ))}
+      </HorizontalTabsNoArrows>
 
       {activeTab === "conta" ? (
         <section className="rounded-lg border border-[#e6dbc9] bg-[#fffaf2] p-3 sm:p-6">
@@ -853,30 +1063,46 @@ export default function Configuracoes() {
                     onChange={(event) => setProfileName(event.target.value)}
                     disabled={!editingProfile}
                     placeholder="Seu nome"
-                    className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-base text-[#1f1c18] disabled:bg-[#fdf8f1] disabled:text-[#6b6357]"
+                    className={`mt-2 h-11 w-full rounded-md border px-3 text-base text-[#1f1c18] disabled:bg-[#fdf8f1] disabled:text-[#6b6357] ${
+                      editingProfile
+                        ? "border-[#1f5b4b] bg-[#fffaf2]"
+                        : "border-[#efe2d1] bg-white"
+                    }`}
                   />
                 </div>
                 <div className="w-full sm:max-w-sm">
                   <label className="text-xs font-semibold text-[#6b6357]">
                     E-mail
                   </label>
-                  <input
-                    type="email"
-                    value={userEmail}
-                    disabled
-                    className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-[#fdf8f1] px-3 text-sm text-[#6b6357]"
-                  />
+                  <span
+                    className="mt-2 block"
+                    title={
+                      editingProfile ? "O e-mail não pode ser alterado." : undefined
+                    }
+                  >
+                    <input
+                      type="email"
+                      value={userEmail}
+                      disabled
+                      className="h-11 w-full rounded-md border border-[#efe2d1] bg-[#fdf8f1] px-3 text-sm text-[#9a9286]"
+                    />
+                  </span>
                 </div>
                 <div className="flex w-full sm:max-w-sm items-center gap-3 rounded-md border border-[#efe2d1] bg-[#fdf8f1] px-4 py-3 text-sm text-[#4b4337]">
                   <div className="relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-full border border-[#e2d6c4] bg-white text-sm font-semibold text-[#6b6357]">
-                    {profileImageUrl ? (
+                    {pendingAvatarPreview || profileImageUrl ? (
                       <Image
-                        src={profileImageUrl}
+                        src={pendingAvatarPreview || profileImageUrl || ""}
                         alt="Foto do perfil"
                         fill
                         sizes="48px"
                         className="object-cover"
                         unoptimized
+                        onError={() => {
+                          setProfileImageUrl(null);
+                          setPendingAvatarPreview(null);
+                          setPendingAvatarFile(null);
+                        }}
                       />
                     ) : (
                       profileAvatar
@@ -887,7 +1113,7 @@ export default function Configuracoes() {
                     <label
                       className={`mt-1 inline-flex items-center gap-2 rounded-md border px-3 py-2 text-xs font-semibold ${
                         editingProfile
-                          ? "cursor-pointer border-[#e2d6c4] bg-white text-[#4b4337]"
+                          ? "cursor-pointer border-[#1f5b4b] bg-[#fffaf2] text-[#1f3f35] shadow-[0_0_0_1px_rgba(31,91,75,0.2)]"
                           : "border-[#efe2d1] bg-[#fdf8f1] text-[#6b6357]"
                       }`}
                     >
@@ -900,59 +1126,13 @@ export default function Configuracoes() {
                         onChange={async (event) => {
                           const file = event.target.files?.[0];
                           if (!file) return;
-                          const resolvedUserId = await resolveUserId();
-                          if (!resolvedUserId) return;
-                          const extension = file.name.split(".").pop() ?? "jpg";
-                          const filePath = `${resolvedUserId}/avatar.${extension}`;
-                          setAvatarStatus("saving");
+                          setPendingAvatarFile(file);
+                          setAvatarStatus("idle");
                           const reader = new FileReader();
                           reader.onload = async () => {
                             if (typeof reader.result === "string") {
-                              setProfileImageUrl(reader.result);
+                              setPendingAvatarPreview(reader.result);
                             }
-                            const { error: uploadError } = await supabase.storage
-                              .from("avatars")
-                              .upload(filePath, file, { upsert: true });
-                            if (uploadError) {
-                              setAvatarStatus("error");
-                              addToast({
-                                variant: "error",
-                                title: "Não foi possível enviar a foto.",
-                                description: "Tente novamente em instantes.",
-                              });
-                              return;
-                            }
-                            const safeName =
-                              profileName ||
-                              (userEmail !== "—"
-                                ? userEmail.split("@")[0]
-                                : "Aluno");
-                            const { error: profileError } = await supabase
-                              .from("profiles")
-                              .upsert({
-                                id: resolvedUserId,
-                                full_name: safeName,
-                                avatar_url: filePath,
-                              });
-                            if (profileError) {
-                              setAvatarStatus("error");
-                              addToast({
-                                variant: "error",
-                                title: "Não foi possível salvar a foto.",
-                                description: "Tente novamente em instantes.",
-                              });
-                              return;
-                            }
-                            const resolved = await resolveAvatarUrl(filePath);
-                            if (resolved) {
-                              setProfileImageUrl(resolved);
-                            }
-                            setAvatarStatus("saved");
-                            addToast({
-                              variant: "success",
-                              title: "Foto atualizada.",
-                              description: "Seu perfil foi atualizado.",
-                            });
                           };
                           reader.readAsDataURL(file);
                         }}
@@ -967,14 +1147,53 @@ export default function Configuracoes() {
                 {avatarStatus === "error" &&
                   "Não foi possível atualizar a foto."}
               </div>
-              <div className="mt-4 flex flex-wrap gap-3">
-                <button
-                  className="rounded-md bg-[#1f5b4b] px-4 py-2 text-sm font-semibold min-h-[44px] text-[#fffaf2]"
-                  onClick={handleProfileToggle}
-                >
-                  {editingProfile ? "Salvar dados" : "Editar dados"}
-                </button>
-              </div>
+                <div className="mt-4 flex flex-wrap gap-3">
+                  <button
+                    className={`min-h-[44px] rounded-md px-4 py-2 text-sm font-semibold inline-flex items-center gap-2 ${
+                      editingProfile
+                        ? "bg-[#1f5b4b] text-[#fffaf2]"
+                        : "border border-[#e2d6c4] bg-[#f0e6d9] text-[#4b4337]"
+                    }`}
+                    onClick={handleProfileToggle}
+                  >
+                    {!editingProfile ? (
+                      <svg
+                        aria-hidden="true"
+                        className="h-4 w-4"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.8"
+                      >
+                        <path d="M12 20h9" strokeLinecap="round" />
+                        <path
+                          d="M16.5 3.5l4 4L7 21H3v-4L16.5 3.5z"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    ) : null}
+                    {editingProfile ? "Salvar dados" : "Editar dados"}
+                  </button>
+                  {editingProfile ? (
+                    <button
+                      className="min-h-[44px] h-11 rounded-md border border-[#e2d6c4] bg-[#f3f3f3] px-4 py-2 text-sm font-semibold text-[#6b6357] inline-flex items-center gap-2"
+                      onClick={handleProfileCancel}
+                    >
+                      <svg
+                        aria-hidden="true"
+                        className="h-4 w-4"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                      >
+                        <path d="M6 6l12 12M18 6l-12 12" strokeLinecap="round" />
+                      </svg>
+                      Cancelar
+                    </button>
+                  ) : null}
+                </div>
             </div>
 
             <div className="border-t border-[#e6dbc9] pt-6">
@@ -995,10 +1214,10 @@ export default function Configuracoes() {
               <div className="mt-3 space-y-3 text-sm text-[#4b4337]">
                 <div className="w-full sm:max-w-sm">
                   <label className="text-xs font-semibold text-[#6b6357]">
-                    Modo do sistema
+                    Tema
                   </label>
                 <select
-                  className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-base text-[#1f1c18] disabled:bg-[#fdf8f1] disabled:text-[#6b6357]"
+                  className={editableFieldClass(editingPreferences)}
                   disabled={!editingPreferences}
                   value={prefMode}
                   onChange={(event) =>
@@ -1012,51 +1231,56 @@ export default function Configuracoes() {
                     ))}
                 </select>
                 </div>
-                <div className="w-full sm:max-w-sm">
-                  <label className="text-xs font-semibold text-[#6b6357]">
-                    Idioma
-                  </label>
-                <select
-                  className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-base text-[#1f1c18] disabled:bg-[#fdf8f1] disabled:text-[#6b6357]"
-                  disabled={!editingPreferences}
-                  value={prefLanguage}
-                  onChange={(event) =>
-                    setPrefLanguage(event.target.value as PrefLanguage)
-                  }
-                >
-                    {prefLanguageOptions.map((option) => (
-                      <option key={option} value={option}>
-                        {option}
-                      </option>
-                    ))}
-                </select>
-                </div>
-                <div className="w-full sm:max-w-sm">
-                  <label className="text-xs font-semibold text-[#6b6357]">
-                    Formato de data
-                  </label>
-                <select
-                  className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-base text-[#1f1c18] disabled:bg-[#fdf8f1] disabled:text-[#6b6357]"
-                  disabled={!editingPreferences}
-                  value={prefDateFormat}
-                  onChange={(event) =>
-                    setPrefDateFormat(event.target.value as PrefDateFormat)
-                  }
-                >
-                    {prefDateFormatOptions.map((option) => (
-                      <option key={option} value={option}>
-                        {option}
-                      </option>
-                    ))}
-                </select>
-                </div>
               </div>
-              <button
-                className="mt-3 rounded-md border border-[#e2d6c4] bg-[#f0e6d9] px-4 py-2 text-sm font-semibold min-h-[44px] text-[#4b4337]"
-                onClick={handlePreferencesToggle}
-              >
-                {editingPreferences ? "Salvar preferências" : "Ajustar preferências"}
-              </button>
+              <div className="mt-3 flex flex-wrap items-center gap-3">
+                <button
+                  className={`min-h-[44px] h-11 rounded-md px-4 py-2 text-sm font-semibold inline-flex items-center gap-2 ${
+                    editingPreferences
+                      ? "bg-[#1f5b4b] text-[#fffaf2]"
+                      : "border border-[#e2d6c4] bg-[#f0e6d9] text-[#4b4337]"
+                  }`}
+                  onClick={handlePreferencesToggle}
+                >
+                  {!editingPreferences ? (
+                    <svg
+                      aria-hidden="true"
+                      className="h-4 w-4"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.8"
+                    >
+                      <path d="M12 20h9" strokeLinecap="round" />
+                      <path
+                        d="M16.5 3.5l4 4L7 21H3v-4L16.5 3.5z"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  ) : null}
+                  {editingPreferences
+                    ? "Salvar preferências"
+                    : "Ajustar preferências"}
+                </button>
+                {editingPreferences ? (
+                  <button
+                    className="min-h-[44px] h-11 rounded-md border border-[#e2d6c4] bg-[#f3f3f3] px-4 py-2 text-sm font-semibold text-[#6b6357] inline-flex items-center gap-2"
+                    onClick={handlePreferencesCancel}
+                  >
+                    <svg
+                      aria-hidden="true"
+                      className="h-4 w-4"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
+                      <path d="M6 6l12 12M18 6l-12 12" strokeLinecap="round" />
+                    </svg>
+                    Cancelar
+                  </button>
+                ) : null}
+              </div>
             </div>
           </div>
         </section>
@@ -1381,7 +1605,7 @@ export default function Configuracoes() {
                     E-mail
                   </label>
                   <select
-                    className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-base text-[#1f1c18] disabled:bg-[#fdf8f1] disabled:text-[#6b6357]"
+                    className={editableFieldClass(editingNotifications)}
                     disabled={!editingNotifications}
                     value={notifyEmail ? "Ativo" : "Inativo"}
                     onChange={(event) =>
@@ -1397,7 +1621,7 @@ export default function Configuracoes() {
                     Aplicativo
                   </label>
                   <select
-                    className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-base text-[#1f1c18] disabled:bg-[#fdf8f1] disabled:text-[#6b6357]"
+                    className={editableFieldClass(editingNotifications)}
                     disabled={!editingNotifications}
                     value={notifyApp ? "Ativo" : "Inativo"}
                     onChange={(event) =>
@@ -1432,7 +1656,7 @@ export default function Configuracoes() {
                     Lembrete diário
                   </label>
                   <select
-                    className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-base text-[#1f1c18] disabled:bg-[#fdf8f1] disabled:text-[#6b6357]"
+                    className={editableFieldClass(editingNotifications)}
                     disabled={!editingNotifications}
                     value={notifyDaily ? "Ativo" : "Inativo"}
                     onChange={(event) =>
@@ -1452,7 +1676,7 @@ export default function Configuracoes() {
                     value={notifyDailyTime}
                     onChange={(event) => setNotifyDailyTime(event.target.value)}
                     disabled={!editingNotifications}
-                    className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-base text-[#1f1c18] disabled:bg-[#fdf8f1] disabled:text-[#6b6357]"
+                    className={editableFieldClass(editingNotifications)}
                   />
                 </div>
                 <div className="w-full sm:max-w-sm">
@@ -1460,7 +1684,7 @@ export default function Configuracoes() {
                     Resumo semanal
                   </label>
                   <select
-                    className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-base text-[#1f1c18] disabled:bg-[#fdf8f1] disabled:text-[#6b6357]"
+                    className={editableFieldClass(editingNotifications)}
                     disabled={!editingNotifications}
                     value={notifyWeekly ? "Ativo" : "Inativo"}
                     onChange={(event) =>
@@ -1476,7 +1700,7 @@ export default function Configuracoes() {
                     Dia do resumo
                   </label>
                   <select
-                    className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-base text-[#1f1c18] disabled:bg-[#fdf8f1] disabled:text-[#6b6357]"
+                    className={editableFieldClass(editingNotifications)}
                     disabled={!editingNotifications}
                     value={notifyWeeklyDay}
                     onChange={(event) =>
@@ -1499,7 +1723,7 @@ export default function Configuracoes() {
                     value={notifyWeeklyTime}
                     onChange={(event) => setNotifyWeeklyTime(event.target.value)}
                     disabled={!editingNotifications}
-                    className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-base text-[#1f1c18] disabled:bg-[#fdf8f1] disabled:text-[#6b6357]"
+                    className={editableFieldClass(editingNotifications)}
                   />
                 </div>
               </div>
@@ -1527,7 +1751,7 @@ export default function Configuracoes() {
                     Revisões atrasadas no topo
                   </label>
                   <select
-                    className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-base text-[#1f1c18] disabled:bg-[#fdf8f1] disabled:text-[#6b6357]"
+                    className={editableFieldClass(editingNotifications)}
                     disabled={!editingNotifications}
                     value={notifyOverdueTop ? "Ativo" : "Inativo"}
                     onChange={(event) =>
@@ -1543,7 +1767,7 @@ export default function Configuracoes() {
                     Nível de urgência
                   </label>
                   <select
-                    className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-base text-[#1f1c18] disabled:bg-[#fdf8f1] disabled:text-[#6b6357]"
+                    className={editableFieldClass(editingNotifications)}
                     disabled={!editingNotifications}
                     value={notifyPriority}
                     onChange={(event) =>
@@ -1586,13 +1810,52 @@ export default function Configuracoes() {
 
             <div className="flex flex-wrap gap-3">
               <button
-                className="rounded-md bg-[#1f5b4b] px-4 py-2 text-sm font-semibold min-h-[44px] text-[#fffaf2]"
+                className={`min-h-[44px] rounded-md px-4 py-2 text-sm font-semibold inline-flex items-center gap-2 ${
+                  editingNotifications
+                    ? "bg-[#1f5b4b] text-[#fffaf2]"
+                    : "border border-[#e2d6c4] bg-[#f0e6d9] text-[#4b4337]"
+                }`}
                 onClick={handleNotificationsToggle}
               >
+                {!editingNotifications ? (
+                  <svg
+                    aria-hidden="true"
+                    className="h-4 w-4"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                  >
+                    <path d="M12 20h9" strokeLinecap="round" />
+                    <path
+                      d="M16.5 3.5l4 4L7 21H3v-4L16.5 3.5z"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                ) : null}
                 {editingNotifications
                   ? "Salvar notificações"
                   : "Editar notificações"}
               </button>
+              {editingNotifications ? (
+                <button
+                  className="min-h-[44px] h-11 rounded-md border border-[#e2d6c4] bg-[#f3f3f3] px-4 py-2 text-sm font-semibold text-[#6b6357] inline-flex items-center gap-2"
+                  onClick={handleNotificationsCancel}
+                >
+                  <svg
+                    aria-hidden="true"
+                    className="h-4 w-4"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <path d="M6 6l12 12M18 6l-12 12" strokeLinecap="round" />
+                  </svg>
+                  Cancelar
+                </button>
+              ) : null}
             </div>
           </div>
         </section>
@@ -1624,7 +1887,7 @@ export default function Configuracoes() {
                     type="password"
                     value={editingSecurity ? "" : "********"}
                     disabled={!editingSecurity}
-                    className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-base text-[#1f1c18] disabled:bg-[#fdf8f1] disabled:text-[#6b6357]"
+                    className={editableFieldClass(editingSecurity)}
                     placeholder={editingSecurity ? "Digite sua senha atual" : ""}
                   />
                   <button
@@ -1643,7 +1906,7 @@ export default function Configuracoes() {
                     value={newPassword}
                     onChange={(event) => setNewPassword(event.target.value)}
                     disabled={!editingSecurity}
-                    className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-base text-[#1f1c18] disabled:bg-[#fdf8f1] disabled:text-[#6b6357]"
+                    className={editableFieldClass(editingSecurity)}
                   />
                 </div>
                 <div className="w-full sm:max-w-sm">
@@ -1655,99 +1918,59 @@ export default function Configuracoes() {
                     value={confirmPassword}
                     onChange={(event) => setConfirmPassword(event.target.value)}
                     disabled={!editingSecurity}
-                    className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-base text-[#1f1c18] disabled:bg-[#fdf8f1] disabled:text-[#6b6357]"
+                    className={editableFieldClass(editingSecurity)}
                   />
                 </div>
               </div>
               <div className="mt-4 flex flex-wrap gap-3">
                 <button
-                  className="rounded-md bg-[#1f5b4b] px-4 py-2 text-sm font-semibold min-h-[44px] text-[#fffaf2]"
-                  onClick={() => setEditingSecurity((prev) => !prev)}
+                  className={`min-h-[44px] rounded-md px-4 py-2 text-sm font-semibold inline-flex items-center gap-2 ${
+                    editingSecurity
+                      ? "bg-[#1f5b4b] text-[#fffaf2]"
+                      : "border border-[#e2d6c4] bg-[#f0e6d9] text-[#4b4337]"
+                  }`}
+                  onClick={handleSecurityToggle}
                 >
+                  {!editingSecurity ? (
+                    <svg
+                      aria-hidden="true"
+                      className="h-4 w-4"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.8"
+                    >
+                      <path d="M12 20h9" strokeLinecap="round" />
+                      <path
+                        d="M16.5 3.5l4 4L7 21H3v-4L16.5 3.5z"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  ) : null}
                   {editingSecurity ? "Salvar segurança" : "Editar segurança"}
                 </button>
-              </div>
-            </div>
-
-            <div className="border-t border-[#e6dbc9] pt-6">
-              <div className="flex items-center gap-2 text-sm font-semibold text-[#4b4337]">
-                <svg
-                  aria-hidden="true"
-                  className="h-5 w-5 text-[#1f5b4b]"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.7"
-                >
-                  <path d="M4 6h16" strokeLinecap="round" />
-                  <path d="M4 12h10" strokeLinecap="round" />
-                  <path d="M4 18h6" strokeLinecap="round" />
-                </svg>
-                Sessões ativas
-              </div>
-              <div className="mt-3 space-y-3 text-sm text-[#4b4337]">
-                <div className="w-full sm:max-w-sm rounded-md border border-[#efe2d1] bg-[#fdf8f1] px-4 py-3">
-                  São Paulo · Chrome · Último acesso hoje
-                </div>
-                <div className="w-full sm:max-w-sm rounded-md border border-[#efe2d1] bg-[#fdf8f1] px-4 py-3">
-                  Salvador · Safari · Último acesso ontem
-                </div>
-              </div>
-              <button
-                className="mt-4 rounded-md border border-[#e2d6c4] bg-[#f0e6d9] px-4 py-2 text-sm font-semibold min-h-[44px] text-[#4b4337]"
-                disabled={!editingSecurity}
-              >
-                Encerrar todas as sessões
-              </button>
-            </div>
-
-            <div className="border-t border-[#e6dbc9] pt-6">
-              <div className="flex items-center gap-2 text-sm font-semibold text-[#4b4337]">
-                <svg
-                  aria-hidden="true"
-                  className="h-5 w-5 text-[#1f5b4b]"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.7"
-                >
-                  <path d="M12 3v4M8 5h8M6 10h12M7 20h10l-1-9H8l-1 9z" />
-                </svg>
-                Segurança adicional
-              </div>
-              <div className="mt-3 space-y-3 text-sm text-[#4b4337]">
-                <div className="w-full sm:max-w-sm">
-                  <label className="text-xs font-semibold text-[#6b6357]">
-                    Autenticação em duas etapas
-                  </label>
-                  <select
-                    className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-base text-[#1f1c18] disabled:bg-[#fdf8f1] disabled:text-[#6b6357]"
-                    disabled={!editingSecurity}
-                    value={editingSecurity ? "Ativo" : "Inativo"}
+                {editingSecurity ? (
+                  <button
+                    className="min-h-[44px] h-11 rounded-md border border-[#e2d6c4] bg-[#f3f3f3] px-4 py-2 text-sm font-semibold text-[#6b6357] inline-flex items-center gap-2"
+                    onClick={handleSecurityCancel}
                   >
-                    <option>Ativo</option>
-                    <option>Inativo</option>
-                  </select>
-                </div>
-                <div className="w-full sm:max-w-sm">
-                  <label className="text-xs font-semibold text-[#6b6357]">
-                    E-mail de recuperação
-                  </label>
-                  <input
-                    type="email"
-                    value="recuperacao@revisame.com"
-                    disabled={!editingSecurity}
-                    className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-base text-[#1f1c18] disabled:bg-[#fdf8f1] disabled:text-[#6b6357]"
-                  />
-                </div>
+                    <svg
+                      aria-hidden="true"
+                      className="h-4 w-4"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
+                      <path d="M6 6l12 12M18 6l-12 12" strokeLinecap="round" />
+                    </svg>
+                    Cancelar
+                  </button>
+                ) : null}
               </div>
-              <button
-                className="mt-4 rounded-md bg-[#1f5b4b] px-4 py-2 text-sm font-semibold min-h-[44px] text-[#fffaf2]"
-                onClick={() => setEditingSecurity((prev) => !prev)}
-              >
-                {editingSecurity ? "Salvar segurança" : "Editar segurança"}
-              </button>
             </div>
+
           </div>
         </section>
       ) : null}
@@ -1768,7 +1991,13 @@ export default function Configuracoes() {
               </svg>
               Privacidade
             </div>
-            <label className="flex w-full sm:max-w-sm items-center gap-3 rounded-md border border-[#efe2d1] bg-[#fdf8f1] px-4 py-3">
+            <label
+              className={`flex w-full sm:max-w-sm items-center gap-3 rounded-md border px-4 py-3 ${
+                editingPrivacy
+                  ? "border-[#1f5b4b] bg-[#fffaf2]"
+                  : "border-[#efe2d1] bg-[#fdf8f1]"
+              }`}
+            >
               <input
                 type="checkbox"
                 className="h-4 w-4"
@@ -1778,7 +2007,13 @@ export default function Configuracoes() {
               />
               Exportar todos os dados
             </label>
-            <label className="flex w-full sm:max-w-sm items-center gap-3 rounded-md border border-[#efe2d1] bg-[#fdf8f1] px-4 py-3">
+            <label
+              className={`flex w-full sm:max-w-sm items-center gap-3 rounded-md border px-4 py-3 ${
+                editingPrivacy
+                  ? "border-[#1f5b4b] bg-[#fffaf2]"
+                  : "border-[#efe2d1] bg-[#fdf8f1]"
+              }`}
+            >
               <input
                 type="checkbox"
                 className="h-4 w-4"
@@ -1790,11 +2025,50 @@ export default function Configuracoes() {
             </label>
             <div className="flex flex-wrap gap-3">
               <button
-                className="rounded-md bg-[#9d4b3b] px-4 py-2 text-sm font-semibold min-h-[44px] text-[#fffaf2]"
-                onClick={() => setEditingPrivacy((prev) => !prev)}
+                className={`min-h-[44px] rounded-md px-4 py-2 text-sm font-semibold inline-flex items-center gap-2 ${
+                  editingPrivacy
+                    ? "bg-[#1f5b4b] text-[#fffaf2]"
+                    : "border border-[#e2d6c4] bg-[#f0e6d9] text-[#4b4337]"
+                }`}
+                onClick={handlePrivacyToggle}
               >
+                {!editingPrivacy ? (
+                  <svg
+                    aria-hidden="true"
+                    className="h-4 w-4"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                  >
+                    <path d="M12 20h9" strokeLinecap="round" />
+                    <path
+                      d="M16.5 3.5l4 4L7 21H3v-4L16.5 3.5z"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                ) : null}
                 {editingPrivacy ? "Salvar privacidade" : "Editar privacidade"}
               </button>
+              {editingPrivacy ? (
+                <button
+                  className="min-h-[44px] h-11 rounded-md border border-[#e2d6c4] bg-[#f3f3f3] px-4 py-2 text-sm font-semibold text-[#6b6357] inline-flex items-center gap-2"
+                  onClick={handlePrivacyCancel}
+                >
+                  <svg
+                    aria-hidden="true"
+                    className="h-4 w-4"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <path d="M6 6l12 12M18 6l-12 12" strokeLinecap="round" />
+                  </svg>
+                  Cancelar
+                </button>
+              ) : null}
               <button
                 className="rounded-md border border-[#e2d6c4] bg-[#f0e6d9] px-4 py-2 text-sm font-semibold min-h-[44px] text-[#4b4337]"
                 disabled={!editingPrivacy || (!confirmExport && !confirmDelete)}
@@ -1901,8 +2175,8 @@ export default function Configuracoes() {
       ) : null}
 
       {showMateriaModal ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-md rounded-lg bg-[#fffaf2] p-5 shadow-[0_24px_60px_-40px_rgba(31,91,75,0.6)] sm:p-6 max-h-[85vh] overflow-y-auto">
+      <div className="fixed inset-0 z-50 flex items-center justify-center modal-overlay p-4">
+        <div className="w-full max-w-md rounded-lg bg-[#fffaf2] p-5 modal-shadow sm:p-6 max-h-[85vh] overflow-y-auto">
             <h3 className="text-lg font-semibold text-[#1f1c18]">
               Adicionar matéria
             </h3>
@@ -1985,7 +2259,7 @@ export default function Configuracoes() {
                 Salvar matéria
               </button>
               <button
-                className="rounded-md border border-[#e1e1e1] bg-[#f3f3f3] px-4 py-2 text-sm font-semibold min-h-[44px] text-[#6b6357]"
+                className="rounded-md border border-[#e1e1e1] bg-[#f3f3f3] px-4 py-2 text-sm font-semibold min-h-[44px] h-11 text-[#6b6357]"
                 onClick={() => {
                   setNovaMateria("");
                   setShowMateriaModal(false);
@@ -1999,8 +2273,8 @@ export default function Configuracoes() {
       ) : null}
 
       {showEditMateriaModal && materiaBeingEdited ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-md rounded-lg bg-[#fffaf2] p-5 shadow-[0_24px_60px_-40px_rgba(31,91,75,0.6)] sm:p-6 max-h-[85vh] overflow-y-auto">
+      <div className="fixed inset-0 z-50 flex items-center justify-center modal-overlay p-4">
+        <div className="w-full max-w-md rounded-lg bg-[#fffaf2] p-5 modal-shadow sm:p-6 max-h-[85vh] overflow-y-auto">
             <h3 className="text-lg font-semibold text-[#1f1c18]">
               Editar matéria
             </h3>
@@ -2073,7 +2347,7 @@ export default function Configuracoes() {
                 Salvar alterações
               </button>
               <button
-                className="rounded-md border border-[#e1e1e1] bg-[#f3f3f3] px-4 py-2 text-sm font-semibold min-h-[44px] text-[#6b6357]"
+                className="rounded-md border border-[#e1e1e1] bg-[#f3f3f3] px-4 py-2 text-sm font-semibold min-h-[44px] h-11 text-[#6b6357]"
                 onClick={() => {
                   setShowEditMateriaModal(false);
                   setMateriaBeingEdited(null);
@@ -2088,8 +2362,8 @@ export default function Configuracoes() {
       ) : null}
 
       {showDeleteMateriaModal && materiaToDelete ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-md rounded-lg bg-[#fffaf2] p-5 shadow-[0_24px_60px_-40px_rgba(31,91,75,0.6)] sm:p-6 max-h-[85vh] overflow-y-auto">
+      <div className="fixed inset-0 z-50 flex items-center justify-center modal-overlay p-4">
+        <div className="w-full max-w-md rounded-lg bg-[#fffaf2] p-5 modal-shadow sm:p-6 max-h-[85vh] overflow-y-auto">
             <h3 className="text-lg font-semibold text-[#1f1c18]">
               Remover matéria
             </h3>
@@ -2156,7 +2430,7 @@ export default function Configuracoes() {
                 Confirmar remoção
               </button>
               <button
-                className="rounded-md border border-[#e1e1e1] bg-[#f3f3f3] px-4 py-2 text-sm font-semibold min-h-[44px] text-[#6b6357]"
+                className="rounded-md border border-[#e1e1e1] bg-[#f3f3f3] px-4 py-2 text-sm font-semibold min-h-[44px] h-11 text-[#6b6357]"
                 onClick={() => {
                   setShowDeleteMateriaModal(false);
                   setMateriaToDelete(null);
@@ -2170,8 +2444,8 @@ export default function Configuracoes() {
       ) : null}
 
       {showTemplateModal ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-md rounded-lg bg-[#fffaf2] p-5 shadow-[0_24px_60px_-40px_rgba(31,91,75,0.6)] sm:p-6 max-h-[85vh] overflow-y-auto">
+      <div className="fixed inset-0 z-50 flex items-center justify-center modal-overlay p-4">
+        <div className="w-full max-w-md rounded-lg bg-[#fffaf2] p-5 modal-shadow sm:p-6 max-h-[85vh] overflow-y-auto">
             <h3 className="text-lg font-semibold text-[#1f1c18]">
               {templateMode === "edit" ? "Editar template" : "Criar template"}
             </h3>
@@ -2368,7 +2642,7 @@ export default function Configuracoes() {
                   : "Salvar template"}
               </button>
               <button
-                className="cursor-pointer rounded-md border border-[#e1e1e1] bg-[#f3f3f3] px-4 py-2 text-sm font-semibold min-h-[44px] text-[#6b6357]"
+                className="cursor-pointer rounded-md border border-[#e1e1e1] bg-[#f3f3f3] px-4 py-2 text-sm font-semibold min-h-[44px] h-11 text-[#6b6357]"
                 onClick={() => {
                   setShowTemplateModal(false);
                   setTemplateName("");
@@ -2386,8 +2660,8 @@ export default function Configuracoes() {
       ) : null}
 
       {showActivateModal && templateToActivate ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-md rounded-lg bg-[#fffaf2] p-5 shadow-[0_24px_60px_-40px_rgba(31,91,75,0.6)] sm:p-6 max-h-[85vh] overflow-y-auto">
+      <div className="fixed inset-0 z-50 flex items-center justify-center modal-overlay p-4">
+        <div className="w-full max-w-md rounded-lg bg-[#fffaf2] p-5 modal-shadow sm:p-6 max-h-[85vh] overflow-y-auto">
             <h3 className="text-lg font-semibold text-[#1f1c18]">
               Ativar template
             </h3>
@@ -2470,7 +2744,7 @@ export default function Configuracoes() {
                 Confirmar ativação
               </button>
               <button
-                className="cursor-pointer rounded-md border border-[#e1e1e1] bg-[#f3f3f3] px-4 py-2 text-sm font-semibold min-h-[44px] text-[#6b6357]"
+                className="cursor-pointer rounded-md border border-[#e1e1e1] bg-[#f3f3f3] px-4 py-2 text-sm font-semibold min-h-[44px] h-11 text-[#6b6357]"
                 onClick={() => {
                   setShowActivateModal(false);
                   setTemplateToActivate(null);
@@ -2484,8 +2758,8 @@ export default function Configuracoes() {
       ) : null}
 
       {showForgotModal ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-md rounded-lg bg-[#fffaf2] p-5 shadow-[0_24px_60px_-40px_rgba(31,91,75,0.6)] sm:p-6 max-h-[85vh] overflow-y-auto">
+      <div className="fixed inset-0 z-50 flex items-center justify-center modal-overlay p-4">
+        <div className="w-full max-w-md rounded-lg bg-[#fffaf2] p-5 modal-shadow sm:p-6 max-h-[85vh] overflow-y-auto">
             <h3 className="text-lg font-semibold text-[#1f1c18]">
               Recuperar senha
             </h3>
@@ -2504,7 +2778,7 @@ export default function Configuracoes() {
                 Enviar link
               </button>
               <button
-                className="rounded-md border border-[#e1e1e1] bg-[#f3f3f3] px-4 py-2 text-sm font-semibold min-h-[44px] text-[#6b6357]"
+                className="rounded-md border border-[#e1e1e1] bg-[#f3f3f3] px-4 py-2 text-sm font-semibold min-h-[44px] h-11 text-[#6b6357]"
                 onClick={() => setShowForgotModal(false)}
               >
                 Cancelar

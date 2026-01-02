@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/app/components/toast-provider";
 
@@ -16,9 +17,15 @@ export default function Adicionar() {
   const supabase = createClient();
   const { addToast } = useToast();
   const [cadenceDays, setCadenceDays] = useState<number[]>([]);
+  const todayIso = useMemo(
+    () => new Date().toISOString().split("T")[0],
+    []
+  );
+  const [studyDate, setStudyDate] = useState(todayIso);
   const [subjectId, setSubjectId] = useState("");
   const [subjects, setSubjects] = useState<SubjectOption[]>([]);
   const [subjectOpen, setSubjectOpen] = useState(false);
+  const subjectDropdownRef = useRef<HTMLDivElement | null>(null);
   const [showAddSubject, setShowAddSubject] = useState(false);
   const [newSubject, setNewSubject] = useState("");
   const [topic, setTopic] = useState("");
@@ -81,8 +88,8 @@ export default function Adicionar() {
       setSubjects(mapped);
       if (mapped.length > 0) {
         const exists = mapped.some((item) => item.id === subjectId);
-        if (!subjectId || !exists) {
-          setSubjectId(mapped[0].id);
+        if (!exists) {
+          setSubjectId("");
         }
       } else {
         setSubjectId("");
@@ -94,6 +101,20 @@ export default function Adicionar() {
   useEffect(() => {
     loadSubjects();
   }, [loadSubjects]);
+
+  useEffect(() => {
+    if (!subjectOpen) return;
+    const handleClickOutside = (event: MouseEvent) => {
+      if (!subjectDropdownRef.current) return;
+      if (!subjectDropdownRef.current.contains(event.target as Node)) {
+        setSubjectOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [subjectOpen]);
 
   useEffect(() => {
     const handleProfileUpdate = () => {
@@ -112,6 +133,8 @@ export default function Adicionar() {
 
   const isValid = useMemo(() => {
     if (!subjectId || !topic.trim()) return false;
+    if (!studyDate) return false;
+    if (studyDate > todayIso) return false;
     if (hasQuestions && (questionsTotal <= 0 || questionsCorrect < 0)) {
       return false;
     }
@@ -119,7 +142,15 @@ export default function Adicionar() {
       return false;
     }
     return true;
-  }, [subjectId, topic, hasQuestions, questionsTotal, questionsCorrect]);
+  }, [
+    subjectId,
+    topic,
+    hasQuestions,
+    questionsTotal,
+    questionsCorrect,
+    studyDate,
+    todayIso,
+  ]);
 
   const previewItems = useMemo(() => {
     if (!cadenceDays.length) return [];
@@ -154,6 +185,7 @@ export default function Adicionar() {
         user_id: user.id,
         subject_id: subjectId,
         topic,
+        studied_at: new Date(`${studyDate}T00:00:00`).toISOString(),
         notes: notes.trim() ? notes.trim() : null,
         questions_total: hasQuestions ? questionsTotal : null,
         questions_correct: hasQuestions ? questionsCorrect : null,
@@ -206,6 +238,8 @@ export default function Adicionar() {
     setHasQuestions(false);
     setQuestionsTotal(0);
     setQuestionsCorrect(0);
+    setStudyDate(todayIso);
+    setSubjectId("");
     setSaving(false);
     setMessage("Estudo salvo e revisões criadas.");
     addToast({
@@ -223,8 +257,8 @@ export default function Adicionar() {
             Adicionar estudo
           </h1>
           <p className="text-sm text-[#5f574a]">
-            Matéria, assunto e data são obrigatórios. A data e a hora são
-            registradas automaticamente.
+            Cadastre um novo estudo e as revisões serão agendadas
+            automaticamente.
           </p>
         </div>
       </header>
@@ -234,9 +268,21 @@ export default function Adicionar() {
           <div className="grid gap-4">
             <div className="space-y-2">
               <label className="text-xs font-semibold uppercase text-[#6b6357]">
+                Data do estudo
+              </label>
+              <input
+                type="date"
+                className="h-11 w-full rounded-md border border-[#e2d6c4] bg-white px-3 text-base text-[#1f1c18]"
+                value={studyDate}
+                max={todayIso}
+                onChange={(event) => setStudyDate(event.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs font-semibold uppercase text-[#6b6357]">
                 Matéria
               </label>
-              <div className="relative w-full">
+              <div className="relative w-full" ref={subjectDropdownRef}>
                 <button
                   type="button"
                   className="flex h-11 w-full items-center justify-between rounded-md border border-[#e2d6c4] bg-white px-3 text-base text-[#1f1c18]"
@@ -363,17 +409,6 @@ export default function Adicionar() {
               <button
                 type="button"
                 className={`min-h-[44px] rounded-md border px-4 py-2 text-sm font-semibold ${
-                  hasQuestions
-                    ? "border-[#1f5b4b] bg-[#e9f4ef] text-[#1f5b4b]"
-                    : "border-[#e2d6c4] bg-[#f0e6d9] text-[#4b4337]"
-                }`}
-                onClick={() => setHasQuestions(true)}
-              >
-                Sim
-              </button>
-              <button
-                type="button"
-                className={`min-h-[44px] rounded-md border px-4 py-2 text-sm font-semibold ${
                   !hasQuestions
                     ? "border-[#1f5b4b] bg-[#e9f4ef] text-[#1f5b4b]"
                     : "border-[#e2d6c4] bg-[#f0e6d9] text-[#4b4337]"
@@ -381,6 +416,17 @@ export default function Adicionar() {
                 onClick={() => setHasQuestions(false)}
               >
                 Não
+              </button>
+              <button
+                type="button"
+                className={`min-h-[44px] rounded-md border px-4 py-2 text-sm font-semibold ${
+                  hasQuestions
+                    ? "border-[#1f5b4b] bg-[#e9f4ef] text-[#1f5b4b]"
+                    : "border-[#e2d6c4] bg-[#f0e6d9] text-[#4b4337]"
+                }`}
+                onClick={() => setHasQuestions(true)}
+              >
+                Sim
               </button>
             </div>
             {hasQuestions ? (
@@ -450,11 +496,11 @@ export default function Adicionar() {
                 <path d="M8 3v4M16 3v4" strokeLinecap="round" />
               </svg>
               <h2 className="text-xl font-semibold text-[#1f1c18]">
-                Assim ficará seu calendário.
+                Assim ficarão suas revisões para esse assunto.
               </h2>
             </div>
             <p className="mt-2 text-sm text-[#5f574a]">
-              Baseado no template atual e na data de hoje.
+              Baseado no template atual e na data do estudo.
             </p>
           </div>
           {subjectId && topic.trim() ? (
@@ -481,14 +527,18 @@ export default function Adicionar() {
             </div>
           )}
           <div className="rounded-md border border-[#d8eadf] bg-[#e9f4ef] px-4 py-3 text-xs text-[#2f5d4e]">
-            Templates podem ser ajustados em Configurações.
+            Templates podem ser ajustados em{" "}
+            <Link href="/configuracoes" className="font-semibold underline">
+              Configurações
+            </Link>
+            .
           </div>
         </aside>
       </section>
 
       {showAddSubject ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-md rounded-lg bg-[#fffaf2] p-5 shadow-[0_24px_60px_-40px_rgba(31,91,75,0.6)] sm:p-6 max-h-[85vh] overflow-y-auto">
+      <div className="fixed inset-0 z-50 flex items-center justify-center modal-overlay p-4">
+        <div className="w-full max-w-md rounded-lg bg-[#fffaf2] p-5 modal-shadow sm:p-6 max-h-[85vh] overflow-y-auto">
             <h3 className="text-lg font-semibold text-[#1f1c18]">
               Adicionar matéria
             </h3>

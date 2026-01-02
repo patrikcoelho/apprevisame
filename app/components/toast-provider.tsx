@@ -110,7 +110,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <ToastContext.Provider value={value}>
       {children}
-      <div className="pointer-events-none fixed right-4 top-4 z-50 flex w-[360px] max-w-[90vw] flex-col gap-3 md:right-6 md:top-6">
+      <div className="pointer-events-none fixed right-4 top-[72px] z-50 flex w-[360px] max-w-[90vw] flex-col gap-3 sm:top-4 md:right-6 md:top-6">
         {toasts.map((toast) => {
           const styles = variantStyles[toast.variant ?? "info"];
           return (

@@ -88,6 +88,9 @@ create table if not exists reviews (
   study_id uuid not null references studies on delete cascade,
   due_at timestamptz not null,
   status text not null default 'pendente',
+  review_started_at timestamptz,
+  review_duration_seconds int,
+  review_paused_seconds int,
   completed_at timestamptz,
   created_at timestamptz not null default now()
 );

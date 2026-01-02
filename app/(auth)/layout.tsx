@@ -12,8 +12,12 @@ export default function AuthLayout({
         <div className="grid w-full gap-6 rounded-2xl border border-[#e6dbc9] bg-[#fffaf2] p-5 shadow-[0_18px_40px_-30px_rgba(31,91,75,0.5)] sm:p-6 md:grid-cols-[1.1fr_1fr] md:gap-8 md:p-8">
           <div className="space-y-6">
             <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-md bg-[#1f5b4b] text-lg font-semibold text-[#fffaf2]">
-                R
+              <div className="flex h-12 w-12 items-center justify-center rounded-md bg-white">
+                <img
+                  src="/images/logo-revisame.png"
+                  alt="Revisame"
+                  className="h-10 w-10"
+                />
               </div>
               <div>
                 <p className="text-xs uppercase tracking-[0.35em] text-[#6b6357]">

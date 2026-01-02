@@ -7,6 +7,7 @@ type ReviewRow = {
   study?: {
     topic?: string | null;
     studied_at?: string | null;
+    notes?: string | null;
     subject?: { name?: string | null } | null;
   } | null;
 };
@@ -38,7 +39,7 @@ export default async function Home() {
   const { data: reviewsData } = await supabase
     .from("reviews")
     .select(
-      "id,due_at,study:studies(topic,studied_at,subject:subjects(name))"
+      "id,due_at,study:studies(topic,studied_at,notes,subject:subjects(name))"
     )
     .eq("status", "pendente")
     .eq("user_id", user?.id ?? "")
@@ -49,6 +50,7 @@ export default async function Home() {
       id: review.id,
       subject: review.study?.subject?.name ?? "Matéria não definida",
       topic: review.study?.topic ?? "Assunto não definido",
+      notes: review.study?.notes ?? "",
       studiedAt: review.study?.studied_at
         ? toDateKey(new Date(review.study.studied_at))
         : toDateKey(new Date()),
