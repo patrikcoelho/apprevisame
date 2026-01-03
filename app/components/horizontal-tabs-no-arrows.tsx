@@ -38,10 +38,10 @@ export default function HorizontalTabsNoArrows({
   return (
     <div className="relative">
       {showLeft ? (
-        <div className="pointer-events-none absolute inset-y-0 left-0 w-10 rounded-l-lg bg-gradient-to-r from-[#fffdf9] to-transparent dark:from-[#141918] md:hidden" />
+        <div className="pointer-events-none absolute inset-y-0 left-0 w-10 rounded-l-lg bg-gradient-to-r from-[var(--surface-bright)] to-transparent md:hidden" />
       ) : null}
       {showRight ? (
-        <div className="pointer-events-none absolute inset-y-0 right-0 w-10 rounded-r-lg bg-gradient-to-l from-[#fffdf9] to-transparent dark:from-[#141918] md:hidden" />
+        <div className="pointer-events-none absolute inset-y-0 right-0 w-10 rounded-r-lg bg-gradient-to-l from-[var(--surface-bright)] to-transparent md:hidden" />
       ) : null}
       <div ref={ref} className={className}>
         {children}

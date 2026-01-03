@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { Layers, Smile } from "lucide-react";
 
 type TemplateItem = {
   id: string;
@@ -56,75 +57,50 @@ export default async function Templates() {
   });
 
   return (
-    <div className="space-y-6">
+    <div className="page-stack">
       <header className="flex flex-col gap-3">
         <div className="space-y-1">
-          <h1 className="text-2xl font-semibold text-[#1f1c18]">Templates</h1>
-          <p className="text-sm text-[#5f574a]">
+          <h1 className="text-2xl font-semibold text-[var(--text-strong)]">Templates</h1>
+          <p className="text-sm text-[var(--text-muted)]">
             Ajuste os intervalos de revisão para cada matéria ou assunto.
           </p>
         </div>
       </header>
 
-      <section className="rounded-lg border border-[#e6dbc9] bg-[#fffaf2] p-3 sm:p-6">
+      <section className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3 sm:p-6">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
-            <p className="text-xs font-semibold uppercase text-[#6b6357]">
+            <p className="text-xs font-semibold uppercase text-[var(--text-muted)]">
               Revisões espaçadas
             </p>
             <div className="mt-2 flex items-center gap-2">
-              <svg
-                aria-hidden="true"
-                className="h-5 w-5 text-[#1f5b4b]"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.7"
-              >
-                <path d="M8 6h10v10H8z" />
-                <path d="M6 8H4v10h10v-2" strokeLinecap="round" />
-              </svg>
-              <h2 className="text-xl font-semibold text-[#1f1c18]">
+              <Layers className="h-5 w-5 text-[var(--accent)]" aria-hidden="true" />
+              <h2 className="text-xl font-semibold text-[var(--text-strong)]">
                 Escolha o template ideal para o seu ritmo.
               </h2>
             </div>
           </div>
-          <button className="min-h-[44px] rounded-full border border-[#e2d6c4] bg-[#f0e6d9] px-5 py-2 text-sm font-semibold text-[#4b4337]">
+          <button className="min-h-[44px] rounded-full border border-[var(--border)] bg-[var(--surface-strong)] px-5 py-2 text-sm font-semibold text-[var(--text-medium)]">
             Criar template
           </button>
         </div>
         <div className="mt-6 grid gap-4 md:grid-cols-3">
           {templates.length === 0 ? (
-            <div className="flex flex-col gap-3 rounded-md border border-[#efe2d1] bg-[#fbf7f2] p-5 text-sm text-[#6b6357]">
+            <div className="flex flex-col gap-3 rounded-md border border-[var(--border-soft)] bg-[var(--surface-soft)] p-5 text-sm text-[var(--text-muted)]">
               <div className="flex items-center gap-3">
-                <span className="flex h-9 w-9 items-center justify-center rounded-full border border-[#e2d6c4] bg-white text-[#4b4337]">
-                  <svg
-                    aria-hidden="true"
-                    className="h-4 w-4"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                  >
-                    <circle cx="12" cy="12" r="9" />
-                    <path d="M9 10h.01M15 10h.01" strokeLinecap="round" />
-                    <path
-                      d="M16 16c-1-1-3-1-4-1s-3 0-4 1"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
+                <span className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface-white)] text-[var(--text-medium)]">
+                  <Smile className="h-4 w-4" aria-hidden="true" />
                 </span>
                 <div>
-                  <p className="font-semibold text-[#4b4337]">
+                  <p className="font-semibold text-[var(--text-medium)]">
                     Nenhum template cadastrado.
                   </p>
-                  <p className="text-xs text-[#6b6357]">
+                  <p className="text-xs text-[var(--text-muted)]">
                     Crie um ritmo para organizar suas revisões.
                   </p>
                 </div>
               </div>
-              <div className="text-xs text-[#6b6357]">
+              <div className="text-xs text-[var(--text-muted)]">
                 Passos: clique em “Criar template” e defina os intervalos.
               </div>
             </div>
@@ -136,30 +112,30 @@ export default async function Templates() {
                   key={template.id}
                   className={`rounded-md border p-5 ${
                     isActive
-                      ? "border-2 border-[#1f5b4b] bg-[#e9f4ef]"
-                      : "border-[#efe2d1] bg-[#fdf8f1]"
+                      ? "border-2 border-[var(--accent-border)] bg-[var(--surface-success)]"
+                      : "border-[var(--border-soft)] bg-[var(--surface-subtle)]"
                   }`}
                 >
                   <div className="flex items-center justify-between">
-                    <p className="text-lg font-semibold text-[#1f1c18]">
+                    <p className="text-lg font-semibold text-[var(--text-strong)]">
                       {template.name}
                     </p>
                     {isActive ? (
-                      <span className="rounded-full bg-[#1f5b4b] px-2 py-1 text-[10px] uppercase text-white">
+                      <span className="rounded-full bg-[var(--accent-bg)] px-2 py-1 text-[10px] uppercase text-[var(--text-white)]">
                         Ativo
                       </span>
                     ) : null}
                   </div>
-                  <p className="mt-2 text-sm text-[#1f5b4b]">
+                  <p className="mt-2 text-sm text-[var(--accent)]">
                     {formatCadence(template.cadence_days)}
                   </p>
-                  <p className="mt-3 text-sm text-[#5f574a]">
+                  <p className="mt-3 text-sm text-[var(--text-muted)]">
                     {detailByName[template.name] ??
                       (template.is_default
                         ? "Template predefinido."
                         : "Template personalizado.")}
                   </p>
-                  <button className="mt-4 min-h-[44px] text-sm font-semibold text-[#1f5b4b]">
+                  <button className="mt-4 min-h-[44px] text-sm font-semibold text-[var(--accent)]">
                     Usar este template
                   </button>
                 </div>

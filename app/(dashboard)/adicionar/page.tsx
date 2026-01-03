@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { CalendarDays, ChevronDown, Smile } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/app/components/toast-provider";
 
@@ -99,7 +100,12 @@ export default function Adicionar() {
   );
 
   useEffect(() => {
-    loadSubjects();
+    const timeoutId = window.setTimeout(() => {
+      void loadSubjects();
+    }, 0);
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
   }, [loadSubjects]);
 
   useEffect(() => {
@@ -250,13 +256,13 @@ export default function Adicionar() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="page-stack">
       <header className="flex flex-col gap-3">
         <div className="space-y-1">
-          <h1 className="text-2xl font-semibold text-[#1f1c18]">
+          <h1 className="text-2xl font-semibold text-[var(--text-strong)]">
             Adicionar estudo
           </h1>
-          <p className="text-sm text-[#5f574a]">
+          <p className="text-sm text-[var(--text-muted)]">
             Cadastre um novo estudo e as revisões serão agendadas
             automaticamente.
           </p>
@@ -264,81 +270,54 @@ export default function Adicionar() {
       </header>
 
       <section className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
-        <div className="space-y-4 rounded-lg border border-[#e6dbc9] bg-[#fffaf2] p-3 sm:p-6">
+        <div className="space-y-4 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3 sm:p-6">
           <div className="grid gap-4">
             <div className="space-y-2">
-              <label className="text-xs font-semibold uppercase text-[#6b6357]">
+              <label className="text-xs font-semibold uppercase text-[var(--text-muted)]">
                 Data do estudo
               </label>
               <input
                 type="date"
-                className="h-11 w-full rounded-md border border-[#e2d6c4] bg-white px-3 text-base text-[#1f1c18]"
+                className="h-11 w-full rounded-md border border-[var(--border)] bg-[var(--surface-white)] px-3 text-base text-[var(--text-strong)]"
                 value={studyDate}
                 max={todayIso}
                 onChange={(event) => setStudyDate(event.target.value)}
               />
             </div>
             <div className="space-y-2">
-              <label className="text-xs font-semibold uppercase text-[#6b6357]">
+              <label className="text-xs font-semibold uppercase text-[var(--text-muted)]">
                 Matéria
               </label>
               <div className="relative w-full" ref={subjectDropdownRef}>
                 <button
                   type="button"
-                  className="flex h-11 w-full items-center justify-between rounded-md border border-[#e2d6c4] bg-white px-3 text-base text-[#1f1c18]"
+                  className="flex h-11 w-full items-center justify-between rounded-md border border-[var(--border)] bg-[var(--surface-white)] px-3 text-base text-[var(--text-strong)]"
                   onClick={() => setSubjectOpen((prev) => !prev)}
                 >
                   <span>
                     {selectedSubject?.label ?? "Selecione uma matéria"}
                   </span>
-                  <svg
-                    aria-hidden="true"
-                    className="h-4 w-4 text-[#6b6357]"
-                    viewBox="0 0 20 20"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                  >
-                    <path d="M5 8l5 5 5-5" strokeLinecap="round" />
-                  </svg>
+                  <ChevronDown className="h-4 w-4 text-[var(--text-muted)]" aria-hidden="true" />
                 </button>
                 {subjectOpen ? (
-                  <div className="absolute z-20 mt-2 w-full rounded-md border border-[#e2d6c4] bg-white shadow-[0_18px_40px_-26px_rgba(31,91,75,0.6)]">
+                  <div className="absolute z-20 mt-2 w-full rounded-md border border-[var(--border)] bg-[var(--surface-white)] shadow-[var(--shadow-accent-pop)]">
                     <div className="max-h-56 overflow-auto py-1">
                       {subjects.length === 0 ? (
-                        <div className="flex flex-col gap-2 px-3 py-3 text-sm text-[#6b6357] bg-[#fbf7f2]">
+                        <div className="flex flex-col gap-2 px-3 py-3 text-sm text-[var(--text-muted)] bg-[var(--surface-soft)]">
                           <div className="flex items-center gap-2">
-                            <span className="flex h-7 w-7 items-center justify-center rounded-full border border-[#e2d6c4] bg-[#fdf8f1] text-[#4b4337]">
-                              <svg
-                                aria-hidden="true"
-                                className="h-3 w-3"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                              >
-                                <circle cx="12" cy="12" r="9" />
-                                <path
-                                  d="M9 10h.01M15 10h.01"
-                                  strokeLinecap="round"
-                                />
-                                <path
-                                  d="M16 16c-1-1-3-1-4-1s-3 0-4 1"
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                />
-                              </svg>
+                            <span className="flex h-7 w-7 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface-subtle)] text-[var(--text-medium)]">
+                              <Smile className="h-3 w-3" aria-hidden="true" />
                             </span>
                             <div>
-                              <p className="font-semibold text-[#4b4337]">
+                              <p className="font-semibold text-[var(--text-medium)]">
                                 Nenhuma matéria cadastrada.
                               </p>
-                              <p className="text-xs text-[#6b6357]">
+                              <p className="text-xs text-[var(--text-muted)]">
                                 Cadastre uma matéria para continuar.
                               </p>
                             </div>
                           </div>
-                          <div className="text-xs text-[#6b6357]">
+                          <div className="text-xs text-[var(--text-muted)]">
                             Passos: use “Adicionar matéria” e selecione o seu
                             objetivo.
                           </div>
@@ -348,7 +327,7 @@ export default function Adicionar() {
                           <button
                             key={item.id}
                             type="button"
-                            className="flex w-full items-center justify-between px-3 py-2 text-left text-base text-[#1f1c18] hover:bg-[#f6efe4]"
+                            className="flex w-full items-center justify-between px-3 py-2 text-left text-base text-[var(--text-strong)] hover:bg-[var(--surface-hover)]"
                             onClick={() => {
                               setSubjectId(item.id);
                               setSubjectOpen(false);
@@ -358,10 +337,10 @@ export default function Adicionar() {
                           </button>
                         ))
                       )}
-                      <div className="border-t border-[#e6dbc9] px-2 py-2">
+                      <div className="border-t border-[var(--border)] px-2 py-2">
                         <button
                           type="button"
-                          className="flex w-full items-center justify-center rounded-md border border-[#1f5b4b] bg-[#e9f4ef] px-3 py-2 text-xs font-semibold text-[#1f5b4b]"
+                          className="flex w-full items-center justify-center rounded-md border border-[var(--accent-border)] bg-[var(--surface-success)] px-3 py-2 text-xs font-semibold text-[var(--accent)]"
                           onClick={() => {
                             setSubjectOpen(false);
                             setShowAddSubject(true);
@@ -376,12 +355,12 @@ export default function Adicionar() {
               </div>
             </div>
             <div className="space-y-2">
-              <label className="text-xs font-semibold uppercase text-[#6b6357]">
+              <label className="text-xs font-semibold uppercase text-[var(--text-muted)]">
                 Assunto
               </label>
               <input
                 type="text"
-                className="h-11 w-full rounded-md border border-[#e2d6c4] bg-white px-3 text-base text-[#1f1c18]"
+                className="h-11 w-full rounded-md border border-[var(--border)] bg-[var(--surface-white)] px-3 text-base text-[var(--text-strong)]"
                 placeholder="Ex: Funções e gráficos"
                 value={topic}
                 onChange={(event) => setTopic(event.target.value)}
@@ -390,19 +369,19 @@ export default function Adicionar() {
           </div>
 
           <div className="space-y-2">
-            <label className="text-xs font-semibold uppercase text-[#6b6357]">
+            <label className="text-xs font-semibold uppercase text-[var(--text-muted)]">
               Observações (opcional)
             </label>
             <textarea
-              className="min-h-[96px] w-full rounded-md border border-[#e2d6c4] bg-white px-3 py-2 text-base text-[#1f1c18]"
+              className="min-h-[96px] w-full rounded-md border border-[var(--border)] bg-[var(--surface-white)] px-3 py-2 text-base text-[var(--text-strong)]"
               placeholder="Alguma observação sobre o estudo"
               value={notes}
               onChange={(event) => setNotes(event.target.value)}
             />
           </div>
 
-          <div className="space-y-3 border-t border-[#e6dbc9] pt-4">
-            <p className="text-xs font-semibold uppercase text-[#6b6357]">
+          <div className="space-y-3 border-t border-[var(--border)] pt-4">
+            <p className="text-xs font-semibold uppercase text-[var(--text-muted)]">
               Você resolveu questões durante esse estudo?
             </p>
             <div className="flex gap-2">
@@ -410,8 +389,8 @@ export default function Adicionar() {
                 type="button"
                 className={`min-h-[44px] rounded-md border px-4 py-2 text-sm font-semibold ${
                   !hasQuestions
-                    ? "border-[#1f5b4b] bg-[#e9f4ef] text-[#1f5b4b]"
-                    : "border-[#e2d6c4] bg-[#f0e6d9] text-[#4b4337]"
+                    ? "border-[var(--accent-border)] bg-[var(--surface-success)] text-[var(--accent)]"
+                    : "border-[var(--border)] bg-[var(--surface-strong)] text-[var(--text-medium)]"
                 }`}
                 onClick={() => setHasQuestions(false)}
               >
@@ -421,8 +400,8 @@ export default function Adicionar() {
                 type="button"
                 className={`min-h-[44px] rounded-md border px-4 py-2 text-sm font-semibold ${
                   hasQuestions
-                    ? "border-[#1f5b4b] bg-[#e9f4ef] text-[#1f5b4b]"
-                    : "border-[#e2d6c4] bg-[#f0e6d9] text-[#4b4337]"
+                    ? "border-[var(--accent-border)] bg-[var(--surface-success)] text-[var(--accent)]"
+                    : "border-[var(--border)] bg-[var(--surface-strong)] text-[var(--text-medium)]"
                 }`}
                 onClick={() => setHasQuestions(true)}
               >
@@ -432,13 +411,13 @@ export default function Adicionar() {
             {hasQuestions ? (
               <div className="grid gap-3">
                 <div className="space-y-1">
-                  <label className="text-xs font-semibold text-[#4b4337]">
+                  <label className="text-xs font-semibold text-[var(--text-medium)]">
                     Quantas questões
                   </label>
                   <input
                     type="number"
                     min={1}
-                    className="h-11 w-full rounded-md border border-[#e2d6c4] bg-white px-3 text-base text-[#1f1c18]"
+                    className="h-11 w-full rounded-md border border-[var(--border)] bg-[var(--surface-white)] px-3 text-base text-[var(--text-strong)]"
                     value={questionsTotal}
                     onChange={(event) =>
                       setQuestionsTotal(Number(event.target.value))
@@ -446,13 +425,13 @@ export default function Adicionar() {
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-semibold text-[#4b4337]">
+                  <label className="text-xs font-semibold text-[var(--text-medium)]">
                     Quantas corretas
                   </label>
                   <input
                     type="number"
                     min={0}
-                    className="h-11 w-full rounded-md border border-[#e2d6c4] bg-white px-3 text-base text-[#1f1c18]"
+                    className="h-11 w-full rounded-md border border-[var(--border)] bg-[var(--surface-white)] px-3 text-base text-[var(--text-strong)]"
                     value={questionsCorrect}
                     onChange={(event) =>
                       setQuestionsCorrect(Number(event.target.value))
@@ -465,41 +444,31 @@ export default function Adicionar() {
 
           <button
             type="button"
-            className="min-h-[48px] w-full rounded-md bg-[#1f5b4b] px-5 py-3 text-sm font-semibold text-[#fffaf2] disabled:cursor-not-allowed disabled:bg-[#9fbfb5]"
+            className="min-h-[48px] w-full rounded-md bg-[var(--accent-bg)] px-5 py-3 text-sm font-semibold text-[var(--text-on-accent)] disabled:cursor-not-allowed disabled:bg-[var(--accent-disabled)]"
             disabled={!isValid || saving}
             onClick={handleSaveStudy}
           >
             {saving ? "Salvando..." : "Salvar estudo e gerar revisões"}
           </button>
           {message ? (
-            <div className="rounded-md border border-[#efe2d1] bg-[#fdf8f1] px-4 py-3 text-xs text-[#6b6357]">
+            <div className="rounded-md border border-[var(--border-soft)] bg-[var(--surface-subtle)] px-4 py-3 text-xs text-[var(--text-muted)]">
               {message}
             </div>
           ) : null}
         </div>
 
-        <aside className="space-y-4 rounded-lg border border-[#e6dbc9] bg-[#fffaf2] p-3 sm:p-6">
+        <aside className="space-y-4 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3 sm:p-6">
           <div>
-            <p className="text-xs font-semibold uppercase text-[#6b6357]">
+            <p className="text-xs font-semibold uppercase text-[var(--text-muted)]">
               Prévia de revisões
             </p>
             <div className="mt-2 flex items-center gap-2">
-              <svg
-                aria-hidden="true"
-                className="h-5 w-5 text-[#1f5b4b]"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.7"
-              >
-                <rect x="4" y="5" width="16" height="14" rx="2" />
-                <path d="M8 3v4M16 3v4" strokeLinecap="round" />
-              </svg>
-              <h2 className="text-xl font-semibold text-[#1f1c18]">
+              <CalendarDays className="h-5 w-5 text-[var(--accent)]" aria-hidden="true" />
+              <h2 className="text-xl font-semibold text-[var(--text-strong)]">
                 Assim ficarão suas revisões para esse assunto.
               </h2>
             </div>
-            <p className="mt-2 text-sm text-[#5f574a]">
+            <p className="mt-2 text-sm text-[var(--text-muted)]">
               Baseado no template atual e na data do estudo.
             </p>
           </div>
@@ -509,24 +478,24 @@ export default function Adicionar() {
                 {previewItems.map((item) => (
                   <div
                     key={item.label}
-                    className="rounded-md border border-[#efe2d1] bg-[#fdf8f1] px-4 py-3 text-sm text-[#4b4337]"
+                    className="rounded-md border border-[var(--border-soft)] bg-[var(--surface-subtle)] px-4 py-3 text-sm text-[var(--text-medium)]"
                   >
-                    <p className="font-semibold text-[#1f1c18]">{item.label}</p>
-                    <p className="text-xs text-[#6b6357]">{item.when}</p>
+                    <p className="font-semibold text-[var(--text-strong)]">{item.label}</p>
+                    <p className="text-xs text-[var(--text-muted)]">{item.when}</p>
                   </div>
                 ))}
               </div>
             ) : (
-              <div className="rounded-md border border-[#efe2d1] bg-[#fdf8f1] px-4 py-4 text-sm text-[#6b6357]">
+              <div className="rounded-md border border-[var(--border-soft)] bg-[var(--surface-subtle)] px-4 py-4 text-sm text-[var(--text-muted)]">
                 Defina um template em Configurações para ver a prévia.
               </div>
             )
           ) : (
-            <div className="rounded-md border border-[#efe2d1] bg-[#fdf8f1] px-4 py-4 text-sm text-[#6b6357]">
+            <div className="rounded-md border border-[var(--border-soft)] bg-[var(--surface-subtle)] px-4 py-4 text-sm text-[var(--text-muted)]">
               Preencha Matéria e Assunto para visualizar a prévia das revisões.
             </div>
           )}
-          <div className="rounded-md border border-[#d8eadf] bg-[#e9f4ef] px-4 py-3 text-xs text-[#2f5d4e]">
+          <div className="rounded-md border border-[var(--border-success-strong)] bg-[var(--surface-success)] px-4 py-3 text-xs text-[var(--accent)]">
             Templates podem ser ajustados em{" "}
             <Link href="/configuracoes" className="font-semibold underline">
               Configurações
@@ -538,20 +507,20 @@ export default function Adicionar() {
 
       {showAddSubject ? (
       <div className="fixed inset-0 z-50 flex items-center justify-center modal-overlay p-4">
-        <div className="w-full max-w-md rounded-lg bg-[#fffaf2] p-5 modal-shadow sm:p-6 max-h-[85vh] overflow-y-auto">
-            <h3 className="text-lg font-semibold text-[#1f1c18]">
+        <div className="w-full max-w-md rounded-lg bg-[var(--surface)] p-5 modal-shadow sm:p-6 max-h-[85vh] overflow-y-auto">
+            <h3 className="text-lg font-semibold text-[var(--text-strong)]">
               Adicionar matéria
             </h3>
-            <p className="mt-2 text-sm text-[#5f574a]">
+            <p className="mt-2 text-sm text-[var(--text-muted)]">
               A matéria será cadastrada para o tipo de estudo atual.
             </p>
             <div className="mt-4 space-y-2">
-              <label className="text-xs font-semibold uppercase text-[#6b6357]">
+              <label className="text-xs font-semibold uppercase text-[var(--text-muted)]">
                 Nome da matéria
               </label>
               <input
                 type="text"
-                className="h-11 w-full max-w-md rounded-md border border-[#e2d6c4] bg-white px-3 text-base text-[#1f1c18]"
+                className="h-11 w-full max-w-md rounded-md border border-[var(--border)] bg-[var(--surface-white)] px-3 text-base text-[var(--text-strong)]"
                 placeholder="Ex: Finanças"
                 value={newSubject}
                 onChange={(event) => setNewSubject(event.target.value)}
@@ -560,7 +529,7 @@ export default function Adicionar() {
             <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-end">
               <button
                 type="button"
-                className="min-h-[44px] rounded-md bg-[#1f5b4b] px-4 py-2 text-sm font-semibold text-[#fffaf2] disabled:cursor-not-allowed disabled:bg-[#9fbfb5]"
+                className="min-h-[44px] rounded-md bg-[var(--accent-bg)] px-4 py-2 text-sm font-semibold text-[var(--text-on-accent)] disabled:cursor-not-allowed disabled:bg-[var(--accent-disabled)]"
                 disabled={!newSubject.trim()}
                 onClick={async () => {
                   const trimmed = newSubject.trim();
@@ -632,7 +601,7 @@ export default function Adicionar() {
               </button>
               <button
                 type="button"
-                className="min-h-[44px] rounded-md border border-[#e1e1e1] bg-[#f3f3f3] px-4 py-2 text-sm font-semibold text-[#6b6357]"
+                className="min-h-[44px] rounded-md border border-[var(--border-neutral)] bg-[var(--surface-neutral)] px-4 py-2 text-sm font-semibold text-[var(--text-muted)]"
                 onClick={() => {
                   setNewSubject("");
                   setShowAddSubject(false);

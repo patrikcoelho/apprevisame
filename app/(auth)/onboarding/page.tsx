@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
+import { Smile } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/app/components/toast-provider";
@@ -241,25 +242,25 @@ export default function OnboardingPage() {
   return (
     <div className="space-y-6">
       <div>
-        <p className="text-xs font-semibold uppercase tracking-[0.35em] text-[#6b6357]">
+        <p className="text-xs font-semibold uppercase tracking-[0.35em] text-[var(--text-muted)]">
           Onboarding
         </p>
-        <h2 className="mt-2 text-2xl font-semibold text-[#1f1c18]">
+        <h2 className="mt-2 text-2xl font-semibold text-[var(--text-strong)]">
           Configure sua conta inicial.
         </h2>
-        <p className="mt-2 text-sm text-[#5f574a]">
+        <p className="mt-2 text-sm text-[var(--text-muted)]">
           Em poucos passos você já começa com o painel pronto.
         </p>
       </div>
 
-      <div className="flex items-center justify-between rounded-md border border-[#efe2d1] bg-[#fdf8f1] px-4 py-3 text-xs font-semibold uppercase text-[#6b6357]">
+      <div className="flex items-center justify-between rounded-md border border-[var(--border-soft)] bg-[var(--surface-subtle)] px-4 py-3 text-xs font-semibold uppercase text-[var(--text-muted)]">
         <span>Etapa {step} de 3</span>
         <div className="flex items-center gap-2">
           {[1, 2, 3].map((item) => (
             <span
               key={item}
               className={`h-2 w-10 rounded-full ${
-                step >= item ? "bg-[#1f5b4b]" : "bg-[#d8cbb8]"
+                step >= item ? "bg-[var(--accent-bg)]" : "bg-[var(--surface-muted)]"
               }`}
             />
           ))}
@@ -269,32 +270,32 @@ export default function OnboardingPage() {
       {step === 1 ? (
         <div className="space-y-4">
           <div>
-            <label className="text-xs font-semibold text-[#6b6357]">Nome</label>
+            <label className="text-xs font-semibold text-[var(--text-muted)]">Nome</label>
             <input
               type="text"
               value={name}
               onChange={(event) => setName(event.target.value)}
-              className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-base text-[#1f1c18]"
+              className="mt-2 h-11 w-full rounded-md border border-[var(--border-soft)] bg-[var(--surface-white)] px-3 text-base text-[var(--text-strong)]"
             />
           </div>
           <div>
-            <label className="text-xs font-semibold text-[#6b6357]">
+            <label className="text-xs font-semibold text-[var(--text-muted)]">
               Objetivo principal
             </label>
             <input
               type="text"
               value={objective}
               onChange={(event) => setObjective(event.target.value)}
-              className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-base text-[#1f1c18]"
+              className="mt-2 h-11 w-full rounded-md border border-[var(--border-soft)] bg-[var(--surface-white)] px-3 text-base text-[var(--text-strong)]"
               placeholder="Ex: Aprovação na próxima prova"
             />
           </div>
           <div>
-            <label className="text-xs font-semibold text-[#6b6357]">
+            <label className="text-xs font-semibold text-[var(--text-muted)]">
               Melhor horário para estudar
             </label>
             <select
-              className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-base text-[#1f1c18]"
+              className="mt-2 h-11 w-full rounded-md border border-[var(--border-soft)] bg-[var(--surface-white)] px-3 text-base text-[var(--text-strong)]"
               value={bestTime}
               onChange={(event) =>
                 setBestTime(event.target.value as BestTime)
@@ -313,48 +314,30 @@ export default function OnboardingPage() {
       {step === 2 ? (
         <div className="space-y-4">
           <div>
-            <p className="text-sm font-semibold text-[#1f1c18]">
+            <p className="text-sm font-semibold text-[var(--text-strong)]">
               Matérias recomendadas para começar
             </p>
-            <p className="mt-1 text-xs text-[#6b6357]">
+            <p className="mt-1 text-xs text-[var(--text-muted)]">
               Selecione as matérias que deseja acompanhar.
             </p>
           </div>
           <div className="grid gap-2 sm:grid-cols-2">
             {availableSubjects.length === 0 ? (
-              <div className="flex flex-col gap-3 rounded-md border border-[#efe2d1] bg-[#fbf7f2] px-3 py-3 text-xs text-[#6b6357]">
+              <div className="flex flex-col gap-3 rounded-md border border-[var(--border-soft)] bg-[var(--surface-soft)] px-3 py-3 text-xs text-[var(--text-muted)]">
                 <div className="flex items-center gap-3">
-                  <span className="flex h-8 w-8 items-center justify-center rounded-full border border-[#e2d6c4] bg-[#fdf8f1] text-[#4b4337]">
-                    <svg
-                      aria-hidden="true"
-                      className="h-3 w-3"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                    >
-                      <circle cx="12" cy="12" r="9" />
-                      <path
-                        d="M9 10h.01M15 10h.01"
-                        strokeLinecap="round"
-                      />
-                      <path
-                        d="M16 16c-1-1-3-1-4-1s-3 0-4 1"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
+                  <span className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface-subtle)] text-[var(--text-medium)]">
+                    <Smile className="h-3 w-3" aria-hidden="true" />
                   </span>
                   <div>
-                    <p className="font-semibold text-[#4b4337]">
+                    <p className="font-semibold text-[var(--text-medium)]">
                       Nenhuma matéria padrão encontrada.
                     </p>
-                    <p className="text-xs text-[#6b6357]">
+                    <p className="text-xs text-[var(--text-muted)]">
                       Você pode cadastrar matérias personalizadas.
                     </p>
                   </div>
                 </div>
-                <div className="text-xs text-[#6b6357]">
+                <div className="text-xs text-[var(--text-muted)]">
                   Passos: avance e adicione suas próprias matérias.
                 </div>
               </div>
@@ -368,14 +351,14 @@ export default function OnboardingPage() {
                     onClick={() => toggleSubject(subject)}
                     className={`flex items-center justify-between rounded-md border px-3 py-2 text-xs font-semibold ${
                       selected
-                        ? "border-[#1f5b4b] bg-[#e9f4ef] text-[#1f5b4b]"
-                        : "border-[#efe2d1] bg-white text-[#4b4337]"
+                        ? "border-[var(--accent-border)] bg-[var(--surface-success)] text-[var(--accent)]"
+                        : "border-[var(--border-soft)] bg-[var(--surface-white)] text-[var(--text-medium)]"
                     }`}
                   >
                     <span>{subject}</span>
                     <span
                       className={`h-2 w-2 rounded-full ${
-                        selected ? "bg-[#1f5b4b]" : "bg-[#d8cbb8]"
+                        selected ? "bg-[var(--accent-bg)]" : "bg-[var(--surface-muted)]"
                       }`}
                     />
                   </button>
@@ -383,8 +366,8 @@ export default function OnboardingPage() {
               })
             )}
           </div>
-          <div className="rounded-md border border-[#efe2d1] bg-[#fdf8f1] p-4">
-            <label className="text-xs font-semibold text-[#6b6357]">
+          <div className="rounded-md border border-[var(--border-soft)] bg-[var(--surface-subtle)] p-4">
+            <label className="text-xs font-semibold text-[var(--text-muted)]">
               Adicionar matéria personalizada
             </label>
             <div className="mt-2 flex gap-2">
@@ -392,12 +375,12 @@ export default function OnboardingPage() {
                 type="text"
                 value={customSubject}
                 onChange={(event) => setCustomSubject(event.target.value)}
-                className="h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-base text-[#1f1c18]"
+                className="h-11 w-full rounded-md border border-[var(--border-soft)] bg-[var(--surface-white)] px-3 text-base text-[var(--text-strong)]"
                 placeholder="Ex: Direito Tributário"
               />
               <button
                 type="button"
-                className="rounded-md border border-[#e2d6c4] bg-[#f0e6d9] px-3 text-xs font-semibold text-[#4b4337]"
+                className="rounded-md border border-[var(--border)] bg-[var(--surface-strong)] px-3 text-xs font-semibold text-[var(--text-medium)]"
                 onClick={() => {
                   const trimmed = customSubject.trim();
                   if (!trimmed) return;
@@ -409,13 +392,13 @@ export default function OnboardingPage() {
                 Adicionar
               </button>
             </div>
-            <p className="mt-2 text-xs text-[#6b6357]">
+            <p className="mt-2 text-xs text-[var(--text-muted)]">
               Você pode cadastrar novas matérias mais tarde no painel.
             </p>
           </div>
           <button
             type="button"
-            className="text-xs font-semibold text-[#1f5b4b]"
+            className="text-xs font-semibold text-[var(--accent)]"
             onClick={() => setStep(3)}
           >
             Pular e ajustar depois
@@ -426,48 +409,30 @@ export default function OnboardingPage() {
       {step === 3 ? (
         <div className="space-y-4">
           <div>
-            <p className="text-sm font-semibold text-[#1f1c18]">
+            <p className="text-sm font-semibold text-[var(--text-strong)]">
               Escolha o template de revisão
             </p>
-            <p className="mt-1 text-xs text-[#6b6357]">
+            <p className="mt-1 text-xs text-[var(--text-muted)]">
               Você pode trocar o template nas configurações.
             </p>
           </div>
           <div className="grid gap-3">
             {templates.length === 0 ? (
-              <div className="flex flex-col gap-3 rounded-md border border-[#efe2d1] bg-[#fbf7f2] px-4 py-3 text-xs text-[#6b6357]">
+              <div className="flex flex-col gap-3 rounded-md border border-[var(--border-soft)] bg-[var(--surface-soft)] px-4 py-3 text-xs text-[var(--text-muted)]">
                 <div className="flex items-center gap-3">
-                  <span className="flex h-8 w-8 items-center justify-center rounded-full border border-[#e2d6c4] bg-[#fdf8f1] text-[#4b4337]">
-                    <svg
-                      aria-hidden="true"
-                      className="h-3 w-3"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                    >
-                      <circle cx="12" cy="12" r="9" />
-                      <path
-                        d="M9 10h.01M15 10h.01"
-                        strokeLinecap="round"
-                      />
-                      <path
-                        d="M16 16c-1-1-3-1-4-1s-3 0-4 1"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
+                  <span className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface-subtle)] text-[var(--text-medium)]">
+                    <Smile className="h-3 w-3" aria-hidden="true" />
                   </span>
                   <div>
-                    <p className="font-semibold text-[#4b4337]">
+                    <p className="font-semibold text-[var(--text-medium)]">
                       Nenhum template disponível.
                     </p>
-                    <p className="text-xs text-[#6b6357]">
+                    <p className="text-xs text-[var(--text-muted)]">
                       Crie um template para organizar suas revisões.
                     </p>
                   </div>
                 </div>
-                <div className="text-xs text-[#6b6357]">
+                <div className="text-xs text-[var(--text-muted)]">
                   Passos: avance e cadastre seu primeiro template.
                 </div>
               </div>
@@ -481,24 +446,24 @@ export default function OnboardingPage() {
                     onClick={() => setSelectedTemplate(template.title)}
                     className={`rounded-md border px-4 py-3 text-left ${
                       isActive
-                        ? "border-2 border-[#1f5b4b] bg-[#e9f4ef]"
-                        : "border-[#efe2d1] bg-white"
+                        ? "border-2 border-[var(--accent-border)] bg-[var(--surface-success)]"
+                        : "border-[var(--border-soft)] bg-[var(--surface-white)]"
                     }`}
                   >
                     <div className="flex items-center justify-between">
-                      <p className="text-sm font-semibold text-[#1f1c18]">
+                      <p className="text-sm font-semibold text-[var(--text-strong)]">
                         {template.title}
                       </p>
                       {isActive ? (
-                        <span className="rounded-full bg-[#1f5b4b] px-2 py-1 text-[10px] uppercase text-white">
+                        <span className="rounded-full bg-[var(--accent-bg)] px-2 py-1 text-[10px] uppercase text-[var(--text-white)]">
                           Selecionado
                         </span>
                       ) : null}
                     </div>
-                    <p className="mt-1 text-xs text-[#1f5b4b]">
+                    <p className="mt-1 text-xs text-[var(--accent)]">
                       {template.cadence}
                     </p>
-                    <p className="mt-2 text-xs text-[#5f574a]">
+                    <p className="mt-2 text-xs text-[var(--text-muted)]">
                       {template.desc}
                     </p>
                   </button>
@@ -507,18 +472,18 @@ export default function OnboardingPage() {
             )}
           </div>
           <div>
-            <label className="text-xs font-semibold text-[#6b6357]">
+            <label className="text-xs font-semibold text-[var(--text-muted)]">
               Horário do lembrete diário
             </label>
             <input
               type="time"
               value={dailyTime}
               onChange={(event) => setDailyTime(event.target.value)}
-              className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-base text-[#1f1c18]"
+              className="mt-2 h-11 w-full rounded-md border border-[var(--border-soft)] bg-[var(--surface-white)] px-3 text-base text-[var(--text-strong)]"
             />
           </div>
-          <div className="rounded-md border border-[#efe2d1] bg-[#fdf8f1] px-4 py-3 text-xs text-[#6b6357]">
-            <p className="font-semibold text-[#4b4337]">Resumo final</p>
+          <div className="rounded-md border border-[var(--border-soft)] bg-[var(--surface-subtle)] px-4 py-3 text-xs text-[var(--text-muted)]">
+            <p className="font-semibold text-[var(--text-medium)]">Resumo final</p>
             <p className="mt-1">
               {selectedSubjects.length} matérias · Template {selectedTemplate}
             </p>
@@ -530,7 +495,7 @@ export default function OnboardingPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <button
           type="button"
-          className="rounded-md border border-[#e2d6c4] bg-[#f0e6d9] px-4 py-2 text-xs font-semibold text-[#4b4337]"
+          className="rounded-md border border-[var(--border)] bg-[var(--surface-strong)] px-4 py-2 text-xs font-semibold text-[var(--text-medium)]"
           onClick={() => setStep((prev) => Math.max(1, prev - 1))}
           disabled={step === 1}
         >
@@ -539,7 +504,7 @@ export default function OnboardingPage() {
         {step < 3 ? (
           <button
             type="button"
-            className="min-h-[44px] rounded-md bg-[#1f5b4b] px-4 py-2 text-sm font-semibold text-[#fffaf2]"
+            className="min-h-[44px] rounded-md bg-[var(--accent-bg)] px-4 py-2 text-sm font-semibold text-[var(--text-on-accent)]"
             onClick={() => setStep((prev) => Math.min(3, prev + 1))}
           >
             Continuar
@@ -547,7 +512,7 @@ export default function OnboardingPage() {
         ) : (
           <button
             type="button"
-            className="min-h-[44px] rounded-md bg-[#1f5b4b] px-4 py-2 text-sm font-semibold text-[#fffaf2] disabled:cursor-not-allowed disabled:bg-[#9fbfb5]"
+            className="min-h-[44px] rounded-md bg-[var(--accent-bg)] px-4 py-2 text-sm font-semibold text-[var(--text-on-accent)] disabled:cursor-not-allowed disabled:bg-[var(--accent-disabled)]"
             onClick={handleFinish}
             disabled={saving}
           >
@@ -557,7 +522,7 @@ export default function OnboardingPage() {
       </div>
 
       {message ? (
-        <div className="rounded-md border border-[#f0c6b9] bg-[#fbe7df] px-4 py-3 text-xs text-[#9d4b3b]">
+        <div className="rounded-md border border-[var(--border-warm)] bg-[var(--surface-warm)] px-4 py-3 text-xs text-[var(--accent-warm)]">
           {message}
         </div>
       ) : null}

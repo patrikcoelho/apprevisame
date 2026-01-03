@@ -3,6 +3,23 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Image from "next/image";
+import {
+  AlertCircle,
+  Bell,
+  BookOpen,
+  Calendar,
+  CreditCard,
+  LayoutTemplate,
+  Lock,
+  MessageSquare,
+  Pencil,
+  Shield,
+  SlidersHorizontal,
+  Smile,
+  Sun,
+  User,
+  X,
+} from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/app/components/toast-provider";
 import HorizontalTabsNoArrows from "@/app/components/horizontal-tabs-no-arrows";
@@ -83,132 +100,51 @@ export default function Configuracoes() {
   const supabase = useMemo(() => createClient(), []);
   const searchParams = useSearchParams();
   const { addToast } = useToast();
-  const [profileLoaded, setProfileLoaded] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState("—");
   const tabs = [
     {
       label: "Conta",
       value: "conta",
-      icon: (
-        <svg
-          aria-hidden="true"
-          className="h-4 w-4"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.7"
-        >
-          <path d="M20 21a8 8 0 0 0-16 0" strokeLinecap="round" />
-          <circle cx="12" cy="8" r="4" />
-        </svg>
-      ),
+      icon: <User className="h-4 w-4" aria-hidden="true" />,
     },
     {
       label: "Matérias",
       value: "materias",
-      icon: (
-        <svg
-          aria-hidden="true"
-          className="h-4 w-4"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.7"
-        >
-          <path d="M4 6h12a3 3 0 0 1 3 3v9H7a3 3 0 0 1-3-3z" />
-          <path d="M7 6v12" strokeLinecap="round" />
-        </svg>
-      ),
+      icon: <BookOpen className="h-4 w-4" aria-hidden="true" />,
     },
     {
       label: "Templates",
       value: "templates",
-      icon: (
-        <svg
-          aria-hidden="true"
-          className="h-4 w-4"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.7"
-        >
-          <path d="M8 6h10v10H8z" />
-          <path d="M6 8H4v10h10v-2" strokeLinecap="round" />
-        </svg>
-      ),
+      icon: <LayoutTemplate className="h-4 w-4" aria-hidden="true" />,
     },
     {
       label: "Segurança",
       value: "seguranca",
-      icon: (
-        <svg
-          aria-hidden="true"
-          className="h-4 w-4"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.7"
-        >
-          <path d="M12 3l8 4v5c0 5-3.5 7.5-8 9-4.5-1.5-8-4-8-9V7l8-4z" />
-        </svg>
-      ),
+      icon: <Shield className="h-4 w-4" aria-hidden="true" />,
     },
     {
       label: "Notificações",
       value: "notificacoes",
-      icon: (
-        <svg
-          aria-hidden="true"
-          className="h-4 w-4"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.7"
-        >
-          <path d="M18 8a6 6 0 1 0-12 0c0 7-3 7-3 7h18s-3 0-3-7" />
-          <path d="M9 19a3 3 0 0 0 6 0" strokeLinecap="round" />
-        </svg>
-      ),
+      icon: <Bell className="h-4 w-4" aria-hidden="true" />,
     },
     {
       label: "Privacidade",
       value: "privacidade",
-      icon: (
-        <svg
-          aria-hidden="true"
-          className="h-4 w-4"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.7"
-        >
-          <path d="M12 3l8 4v5c0 5-3.5 7.5-8 9-4.5-1.5-8-4-8-9V7l8-4z" />
-        </svg>
-      ),
+      icon: <Lock className="h-4 w-4" aria-hidden="true" />,
     },
     {
       label: "Planos",
       value: "planos",
-      icon: (
-        <svg
-          aria-hidden="true"
-          className="h-4 w-4"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.7"
-        >
-          <path d="M4 7h16v10H4z" />
-          <path d="M7 10h6M7 14h10" strokeLinecap="round" />
-        </svg>
-      ),
+      icon: <CreditCard className="h-4 w-4" aria-hidden="true" />,
     },
   ] as const;
 
   type TabValue = (typeof tabs)[number]["value"];
 
-  const [activeTab, setActiveTab] = useState<TabValue>("conta");
+  const [selectedTab, setSelectedTab] = useState<TabValue>("conta");
+  const activeTab =
+    (searchParams.get("tab") as TabValue | null) ?? selectedTab;
   const [editingProfile, setEditingProfile] = useState(false);
   const [profileName, setProfileName] = useState("");
   const [profileAvatar, setProfileAvatar] = useState("PM");
@@ -225,16 +161,31 @@ export default function Configuracoes() {
     "idle" | "saving" | "saved" | "error"
   >("idle");
   const [editingPreferences, setEditingPreferences] = useState(false);
-  const [prefMode, setPrefMode] = useState<PrefMode>("Automático");
+  const [prefMode, setPrefMode] = useState<PrefMode>(() => {
+    if (typeof window === "undefined") return "Automático";
+    const stored = window.localStorage.getItem("revisame:theme");
+    return stored && isPrefMode(stored) ? stored : "Automático";
+  });
   const [preferencesSnapshot, setPreferencesSnapshot] =
     useState<PrefMode | null>(null);
   const [editingSecurity, setEditingSecurity] = useState(false);
+  const minPasswordLength = 6;
+  const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [securityStatus, setSecurityStatus] = useState<
+    "idle" | "loading" | "error"
+  >("idle");
+  const [securityMessage, setSecurityMessage] = useState("");
   const [securitySnapshot, setSecuritySnapshot] = useState<{
+    currentPassword: string;
     newPassword: string;
     confirmPassword: string;
   } | null>(null);
+  const [forgotStatus, setForgotStatus] = useState<"idle" | "loading" | "error">(
+    "idle"
+  );
+  const [forgotMessage, setForgotMessage] = useState("");
   const [editingNotifications, setEditingNotifications] = useState(false);
   const [notifyEmail, setNotifyEmail] = useState(true);
   const [notifyApp, setNotifyApp] = useState(false);
@@ -309,6 +260,23 @@ export default function Configuracoes() {
     return session?.user?.id ?? null;
   }, [supabase, userId]);
 
+  function extractAvatarPath(avatarUrl: string) {
+    if (!avatarUrl.startsWith("http")) return avatarUrl;
+    const signedIdx = avatarUrl.indexOf("/storage/v1/object/sign/avatars/");
+    if (signedIdx !== -1) {
+      return avatarUrl
+        .slice(signedIdx + "/storage/v1/object/sign/avatars/".length)
+        .split("?")[0];
+    }
+    const publicIdx = avatarUrl.indexOf("/storage/v1/object/public/avatars/");
+    if (publicIdx !== -1) {
+      return avatarUrl
+        .slice(publicIdx + "/storage/v1/object/public/avatars/".length)
+        .split("?")[0];
+    }
+    return null;
+  }
+
   const resolveAvatarUrl = useCallback(
     async (avatarUrl: string | null) => {
       if (!avatarUrl) return null;
@@ -329,23 +297,6 @@ export default function Configuracoes() {
     },
     [supabase]
   );
-
-  const extractAvatarPath = (avatarUrl: string) => {
-    if (!avatarUrl.startsWith("http")) return avatarUrl;
-    const signedIdx = avatarUrl.indexOf("/storage/v1/object/sign/avatars/");
-    if (signedIdx !== -1) {
-      return avatarUrl
-        .slice(signedIdx + "/storage/v1/object/sign/avatars/".length)
-        .split("?")[0];
-    }
-    const publicIdx = avatarUrl.indexOf("/storage/v1/object/public/avatars/");
-    if (publicIdx !== -1) {
-      return avatarUrl
-        .slice(publicIdx + "/storage/v1/object/public/avatars/".length)
-        .split("?")[0];
-    }
-    return null;
-  };
 
   const loadProfile = useCallback(async () => {
     const {
@@ -531,8 +482,7 @@ export default function Configuracoes() {
         active_template_id: fallbackTemplate.id,
       });
     }
-    setProfileLoaded(true);
-  }, [supabase]);
+  }, [resolveAvatarUrl, supabase]);
 
   const filteredSubjects = useMemo(() => {
     const search = materiaSearch.trim().toLowerCase();
@@ -586,7 +536,7 @@ export default function Configuracoes() {
     };
 
     ensureActiveTemplate();
-  }, [activeTemplateId, supabase, templates]);
+  }, [activeTemplateId, supabase, templates, userId]);
 
   useEffect(() => {
     const syncActiveTemplate = async () => {
@@ -648,14 +598,12 @@ export default function Configuracoes() {
   }, [activeTemplateId, supabase, templates]);
 
   useEffect(() => {
-    const tab = searchParams.get("tab") as TabValue | null;
-    if (tab) {
-      setActiveTab(tab);
-    }
-  }, [searchParams]);
-
-  useEffect(() => {
-    loadProfile();
+    const timeoutId = window.setTimeout(() => {
+      void loadProfile();
+    }, 0);
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
   }, [activeTab, loadProfile]);
 
   useEffect(() => {
@@ -710,14 +658,6 @@ export default function Configuracoes() {
       window.removeEventListener("revisame:profile-sync", handleProfileSync);
     };
   }, [resolveAvatarUrl]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const stored = window.localStorage.getItem("revisame:theme") as PrefMode | null;
-    if (stored && isPrefMode(stored)) {
-      setPrefMode(stored);
-    }
-  }, []);
 
   const handleProfileToggle = async () => {
     if (!editingProfile) {
@@ -930,24 +870,139 @@ export default function Configuracoes() {
     setNotificationsSnapshot(null);
   };
 
-  const handleSecurityToggle = () => {
+  const passwordHasMinLength = newPassword.length >= minPasswordLength;
+  const isSecurityPasswordValid = passwordHasMinLength;
+
+  const handleSecurityToggle = async () => {
     if (!editingSecurity) {
-      setSecuritySnapshot({ newPassword, confirmPassword });
+      setSecuritySnapshot({ currentPassword, newPassword, confirmPassword });
       setEditingSecurity(true);
       return;
     }
+
+    setSecurityMessage("");
+
+    if (!currentPassword) {
+      setSecurityStatus("error");
+      setSecurityMessage("Informe sua senha atual.");
+      addToast({
+        variant: "error",
+        title: "Senha atual obrigatória.",
+        description: "Informe sua senha atual para continuar.",
+      });
+      return;
+    }
+
+    if (!newPassword || !confirmPassword) {
+      setSecurityStatus("error");
+      setSecurityMessage("Preencha a nova senha e a confirmação.");
+      addToast({
+        variant: "error",
+        title: "Campos obrigatórios.",
+        description: "Preencha a nova senha e a confirmação.",
+      });
+      return;
+    }
+
+    if (!isSecurityPasswordValid) {
+      setSecurityStatus("error");
+      setSecurityMessage(
+        `A senha precisa ter no mínimo ${minPasswordLength} caracteres.`
+      );
+      addToast({
+        variant: "error",
+        title: "Senha fraca.",
+        description: `Use no mínimo ${minPasswordLength} caracteres.`,
+      });
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setSecurityStatus("error");
+      setSecurityMessage("As senhas não coincidem.");
+      addToast({
+        variant: "error",
+        title: "As senhas não coincidem.",
+        description: "Verifique e tente novamente.",
+      });
+      return;
+    }
+
+    setSecurityStatus("loading");
+    if (!userEmail || userEmail === "—") {
+      setSecurityStatus("error");
+      setSecurityMessage("Não foi possível validar seu e-mail.");
+      addToast({
+        variant: "error",
+        title: "Não foi possível validar seu e-mail.",
+        description: "Tente novamente em instantes.",
+      });
+      return;
+    }
+
+    const { error: authError } = await supabase.auth.signInWithPassword({
+      email: userEmail,
+      password: currentPassword,
+    });
+
+    if (authError) {
+      setSecurityStatus("error");
+      setSecurityMessage("Senha atual incorreta.");
+      addToast({
+        variant: "error",
+        title: "Senha atual incorreta.",
+        description: "Verifique e tente novamente.",
+      });
+      return;
+    }
+
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+
+    if (error) {
+      const rawMessage = error.message.toLowerCase();
+      const nextMessage = rawMessage.includes("password") &&
+        rawMessage.includes("least")
+        ? `A senha precisa ter no mínimo ${minPasswordLength} caracteres.`
+        : "Não foi possível atualizar sua senha.";
+      setSecurityStatus("error");
+      setSecurityMessage(nextMessage);
+      addToast({
+        variant: "error",
+        title: "Não foi possível atualizar sua senha.",
+        description:
+          nextMessage === "Não foi possível atualizar sua senha."
+            ? "Tente novamente em instantes."
+            : nextMessage,
+      });
+      return;
+    }
+
+    setSecurityStatus("idle");
+    setSecurityMessage("");
+    setCurrentPassword("");
+    setNewPassword("");
+    setConfirmPassword("");
     setEditingSecurity(false);
     setSecuritySnapshot(null);
+    addToast({
+      variant: "success",
+      title: "Senha atualizada.",
+      description: "Sua senha foi alterada com sucesso.",
+    });
   };
 
   const handleSecurityCancel = () => {
     if (securitySnapshot) {
+      setCurrentPassword(securitySnapshot.currentPassword);
       setNewPassword(securitySnapshot.newPassword);
       setConfirmPassword(securitySnapshot.confirmPassword);
     } else {
+      setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
     }
+    setSecurityStatus("idle");
+    setSecurityMessage("");
     setEditingSecurity(false);
     setSecuritySnapshot(null);
   };
@@ -971,9 +1026,47 @@ export default function Configuracoes() {
     setPrivacySnapshot(null);
   };
 
+  const handleForgotPassword = async () => {
+    if (!userEmail || userEmail === "—") {
+      setForgotStatus("error");
+      setForgotMessage("Não foi possível encontrar seu e-mail.");
+      addToast({
+        variant: "error",
+        title: "Não foi possível encontrar seu e-mail.",
+        description: "Tente novamente em instantes.",
+      });
+      return;
+    }
+    setForgotStatus("loading");
+    setForgotMessage("");
+
+    const { error } = await supabase.auth.resetPasswordForEmail(userEmail, {
+      redirectTo: `${window.location.origin}/recuperar-senha/nova`,
+    });
+
+    if (error) {
+      setForgotStatus("error");
+      setForgotMessage("Não foi possível enviar o link de recuperação.");
+      addToast({
+        variant: "error",
+        title: "Não foi possível enviar o link.",
+        description: "Tente novamente em instantes.",
+      });
+      return;
+    }
+
+    setForgotStatus("idle");
+    addToast({
+      variant: "success",
+      title: "Link enviado.",
+      description: "Confira sua caixa de entrada.",
+    });
+    setShowForgotModal(false);
+  };
+
   const editableFieldClass = (isEditing: boolean) =>
-    `mt-2 h-11 w-full rounded-md border px-3 text-base text-[#1f1c18] disabled:bg-[#fdf8f1] disabled:text-[#6b6357] ${
-      isEditing ? "border-[#1f5b4b] bg-[#fffaf2]" : "border-[#efe2d1] bg-white"
+    `mt-2 h-11 w-full rounded-md border px-3 text-base text-[var(--text-strong)] disabled:bg-[var(--surface-subtle)] disabled:text-[var(--text-muted)] ${
+      isEditing ? "border-[var(--accent-border)] bg-[var(--surface)]" : "border-[var(--border-soft)] bg-[var(--surface-white)]"
     }`;
 
   const handlePlanChange = async (plan: "Gratuito" | "Premium") => {
@@ -1000,30 +1093,30 @@ export default function Configuracoes() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="page-stack">
       <header className="flex flex-col gap-3">
         <div className="space-y-1">
-          <h1 className="text-2xl font-semibold text-[#1f1c18]">
+          <h1 className="text-2xl font-semibold text-[var(--text-strong)]">
             Configurações
           </h1>
-          <p className="text-sm text-[#5f574a]">
+          <p className="text-sm text-[var(--text-muted)]">
             Ajuste tipo de estudo, matérias, templates e notificações.
           </p>
         </div>
       </header>
 
       <HorizontalTabsNoArrows
-        className="flex w-full max-w-full items-center gap-2 overflow-x-auto rounded-lg border border-[#e6dbc9] bg-[#fffdf9] px-4 py-3 text-sm font-semibold text-[#4b4337] pr-10 sm:pr-12"
+        className="flex w-full max-w-full items-center gap-2 overflow-x-auto rounded-lg border border-[var(--border)] bg-[var(--surface-bright)] px-4 py-3 text-sm font-semibold text-[var(--text-medium)] pr-10 sm:pr-12"
       >
         {tabs.map((item) => (
           <button
             key={item.value}
             type="button"
-            onClick={() => setActiveTab(item.value)}
+            onClick={() => setSelectedTab(item.value)}
             className={`whitespace-nowrap rounded-md px-4 py-2.5 ${
               activeTab === item.value
-                ? "bg-[#f0e6d9] text-[#1f3f35]"
-                : "hover:bg-[#f6efe4]"
+                ? "bg-[var(--surface-strong)] text-[var(--accent)]"
+                : "hover:bg-[var(--surface-hover)]"
             }`}
           >
             <span className="flex items-center gap-2">
@@ -1035,26 +1128,16 @@ export default function Configuracoes() {
       </HorizontalTabsNoArrows>
 
       {activeTab === "conta" ? (
-        <section className="rounded-lg border border-[#e6dbc9] bg-[#fffaf2] p-3 sm:p-6">
+        <section className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3 sm:p-6">
           <div className="space-y-8">
             <div>
-              <div className="flex items-center gap-2 text-sm font-semibold text-[#4b4337]">
-                <svg
-                  aria-hidden="true"
-                  className="h-5 w-5 text-[#1f5b4b]"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.7"
-                >
-                  <path d="M20 21a8 8 0 0 0-16 0" strokeLinecap="round" />
-                  <circle cx="12" cy="8" r="4" />
-                </svg>
+              <div className="flex items-center gap-2 text-sm font-semibold text-[var(--text-medium)]">
+                <User className="h-5 w-5 text-[var(--accent)]" aria-hidden="true" />
                 Dados pessoais
               </div>
               <div className="mt-3 space-y-3">
                 <div className="w-full sm:max-w-sm">
-                  <label className="text-xs font-semibold text-[#6b6357]">
+                  <label className="text-xs font-semibold text-[var(--text-muted)]">
                     Nome
                   </label>
                   <input
@@ -1063,15 +1146,15 @@ export default function Configuracoes() {
                     onChange={(event) => setProfileName(event.target.value)}
                     disabled={!editingProfile}
                     placeholder="Seu nome"
-                    className={`mt-2 h-11 w-full rounded-md border px-3 text-base text-[#1f1c18] disabled:bg-[#fdf8f1] disabled:text-[#6b6357] ${
+                    className={`mt-2 h-11 w-full rounded-md border px-3 text-base text-[var(--text-strong)] disabled:bg-[var(--surface-subtle)] disabled:text-[var(--text-muted)] ${
                       editingProfile
-                        ? "border-[#1f5b4b] bg-[#fffaf2]"
-                        : "border-[#efe2d1] bg-white"
+                        ? "border-[var(--accent-border)] bg-[var(--surface)]"
+                        : "border-[var(--border-soft)] bg-[var(--surface-white)]"
                     }`}
                   />
                 </div>
                 <div className="w-full sm:max-w-sm">
-                  <label className="text-xs font-semibold text-[#6b6357]">
+                  <label className="text-xs font-semibold text-[var(--text-muted)]">
                     E-mail
                   </label>
                   <span
@@ -1084,12 +1167,12 @@ export default function Configuracoes() {
                       type="email"
                       value={userEmail}
                       disabled
-                      className="h-11 w-full rounded-md border border-[#efe2d1] bg-[#fdf8f1] px-3 text-sm text-[#9a9286]"
+                      className="h-11 w-full rounded-md border border-[var(--border-soft)] bg-[var(--surface-subtle)] px-3 text-sm text-[var(--text-muted-soft)]"
                     />
                   </span>
                 </div>
-                <div className="flex w-full sm:max-w-sm items-center gap-3 rounded-md border border-[#efe2d1] bg-[#fdf8f1] px-4 py-3 text-sm text-[#4b4337]">
-                  <div className="relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-full border border-[#e2d6c4] bg-white text-sm font-semibold text-[#6b6357]">
+                <div className="flex w-full sm:max-w-sm items-center gap-3 rounded-md border border-[var(--border-soft)] bg-[var(--surface-subtle)] px-4 py-3 text-sm text-[var(--text-medium)]">
+                  <div className="relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-full border border-[var(--border)] bg-[var(--surface-white)] text-sm font-semibold text-[var(--text-muted)]">
                     {pendingAvatarPreview || profileImageUrl ? (
                       <Image
                         src={pendingAvatarPreview || profileImageUrl || ""}
@@ -1109,12 +1192,12 @@ export default function Configuracoes() {
                     )}
                   </div>
                   <div>
-                    <p className="text-xs text-[#6b6357]">Foto do perfil</p>
+                    <p className="text-xs text-[var(--text-muted)]">Foto do perfil</p>
                     <label
                       className={`mt-1 inline-flex items-center gap-2 rounded-md border px-3 py-2 text-xs font-semibold ${
                         editingProfile
-                          ? "cursor-pointer border-[#1f5b4b] bg-[#fffaf2] text-[#1f3f35] shadow-[0_0_0_1px_rgba(31,91,75,0.2)]"
-                          : "border-[#efe2d1] bg-[#fdf8f1] text-[#6b6357]"
+                          ? "cursor-pointer border-[var(--accent-border)] bg-[var(--surface)] text-[var(--accent)] shadow-[var(--shadow-accent-outline)]"
+                          : "border-[var(--border-soft)] bg-[var(--surface-subtle)] text-[var(--text-muted)]"
                       }`}
                     >
                       Selecionar imagem
@@ -1141,7 +1224,7 @@ export default function Configuracoes() {
                   </div>
                 </div>
               </div>
-              <div className="mt-3 text-xs text-[#6b6357]">
+              <div className="mt-3 text-xs text-[var(--text-muted)]">
                 {avatarStatus === "saving" && "Salvando foto..."}
                 {avatarStatus === "saved" && "Foto atualizada com sucesso."}
                 {avatarStatus === "error" &&
@@ -1151,69 +1234,36 @@ export default function Configuracoes() {
                   <button
                     className={`min-h-[44px] rounded-md px-4 py-2 text-sm font-semibold inline-flex items-center gap-2 ${
                       editingProfile
-                        ? "bg-[#1f5b4b] text-[#fffaf2]"
-                        : "border border-[#e2d6c4] bg-[#f0e6d9] text-[#4b4337]"
+                        ? "bg-[var(--accent-bg)] text-[var(--text-on-accent)]"
+                        : "border border-[var(--border)] bg-[var(--surface-strong)] text-[var(--text-medium)]"
                     }`}
                     onClick={handleProfileToggle}
                   >
                     {!editingProfile ? (
-                      <svg
-                        aria-hidden="true"
-                        className="h-4 w-4"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="1.8"
-                      >
-                        <path d="M12 20h9" strokeLinecap="round" />
-                        <path
-                          d="M16.5 3.5l4 4L7 21H3v-4L16.5 3.5z"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                      </svg>
+                      <Pencil className="h-4 w-4" aria-hidden="true" />
                     ) : null}
                     {editingProfile ? "Salvar dados" : "Editar dados"}
                   </button>
                   {editingProfile ? (
                     <button
-                      className="min-h-[44px] h-11 rounded-md border border-[#e2d6c4] bg-[#f3f3f3] px-4 py-2 text-sm font-semibold text-[#6b6357] inline-flex items-center gap-2"
+                      className="min-h-[44px] h-11 rounded-md border border-[var(--border)] bg-[var(--surface-neutral)] px-4 py-2 text-sm font-semibold text-[var(--text-muted)] inline-flex items-center gap-2"
                       onClick={handleProfileCancel}
                     >
-                      <svg
-                        aria-hidden="true"
-                        className="h-4 w-4"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                      >
-                        <path d="M6 6l12 12M18 6l-12 12" strokeLinecap="round" />
-                      </svg>
+                      <X className="h-4 w-4" aria-hidden="true" />
                       Cancelar
                     </button>
                   ) : null}
                 </div>
             </div>
 
-            <div className="border-t border-[#e6dbc9] pt-6">
-              <div className="flex items-center gap-2 text-sm font-semibold text-[#4b4337]">
-                <svg
-                  aria-hidden="true"
-                  className="h-5 w-5 text-[#1f5b4b]"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.7"
-                >
-                  <path d="M12 3v3M12 18v3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M3 12h3M18 12h3M4.9 19.1l2.1-2.1M17 7l2.1-2.1" />
-                  <circle cx="12" cy="12" r="4" />
-                </svg>
+            <div className="border-t border-[var(--border)] pt-6">
+              <div className="flex items-center gap-2 text-sm font-semibold text-[var(--text-medium)]">
+                <Sun className="h-5 w-5 text-[var(--accent)]" aria-hidden="true" />
                 Preferências do sistema
               </div>
-              <div className="mt-3 space-y-3 text-sm text-[#4b4337]">
+              <div className="mt-3 space-y-3 text-sm text-[var(--text-medium)]">
                 <div className="w-full sm:max-w-sm">
-                  <label className="text-xs font-semibold text-[#6b6357]">
+                  <label className="text-xs font-semibold text-[var(--text-muted)]">
                     Tema
                   </label>
                 <select
@@ -1236,27 +1286,13 @@ export default function Configuracoes() {
                 <button
                   className={`min-h-[44px] h-11 rounded-md px-4 py-2 text-sm font-semibold inline-flex items-center gap-2 ${
                     editingPreferences
-                      ? "bg-[#1f5b4b] text-[#fffaf2]"
-                      : "border border-[#e2d6c4] bg-[#f0e6d9] text-[#4b4337]"
+                      ? "bg-[var(--accent-bg)] text-[var(--text-on-accent)]"
+                      : "border border-[var(--border)] bg-[var(--surface-strong)] text-[var(--text-medium)]"
                   }`}
                   onClick={handlePreferencesToggle}
                 >
                   {!editingPreferences ? (
-                    <svg
-                      aria-hidden="true"
-                      className="h-4 w-4"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.8"
-                    >
-                      <path d="M12 20h9" strokeLinecap="round" />
-                      <path
-                        d="M16.5 3.5l4 4L7 21H3v-4L16.5 3.5z"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
+                    <Pencil className="h-4 w-4" aria-hidden="true" />
                   ) : null}
                   {editingPreferences
                     ? "Salvar preferências"
@@ -1264,19 +1300,10 @@ export default function Configuracoes() {
                 </button>
                 {editingPreferences ? (
                   <button
-                    className="min-h-[44px] h-11 rounded-md border border-[#e2d6c4] bg-[#f3f3f3] px-4 py-2 text-sm font-semibold text-[#6b6357] inline-flex items-center gap-2"
+                    className="min-h-[44px] h-11 rounded-md border border-[var(--border)] bg-[var(--surface-neutral)] px-4 py-2 text-sm font-semibold text-[var(--text-muted)] inline-flex items-center gap-2"
                     onClick={handlePreferencesCancel}
                   >
-                    <svg
-                      aria-hidden="true"
-                      className="h-4 w-4"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                    >
-                      <path d="M6 6l12 12M18 6l-12 12" strokeLinecap="round" />
-                    </svg>
+                    <X className="h-4 w-4" aria-hidden="true" />
                     Cancelar
                   </button>
                 ) : null}
@@ -1287,50 +1314,50 @@ export default function Configuracoes() {
       ) : null}
 
       {activeTab === "materias" ? (
-        <section className="rounded-lg border border-[#e6dbc9] bg-[#fffaf2] p-3 sm:p-6">
+        <section className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3 sm:p-6">
           <div className="space-y-5">
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div>
-                <p className="text-xs font-semibold uppercase text-[#6b6357]">
+                <p className="text-xs font-semibold uppercase text-[var(--text-muted)]">
                   Matérias
                 </p>
-                <h2 className="text-xl font-semibold text-[#1f1c18]">
+                <h2 className="text-xl font-semibold text-[var(--text-strong)]">
                   Cadastro de matérias.
                 </h2>
               </div>
               <button
-                className="w-full rounded-md bg-[#1f5b4b] px-4 py-2 text-sm font-semibold min-h-[44px] text-[#fffaf2] shadow-[0_10px_30px_-20px_rgba(31,91,75,0.7)] sm:w-auto"
+                className="w-full rounded-md bg-[var(--accent-bg)] px-4 py-2 text-sm font-semibold min-h-[44px] text-[var(--text-on-accent)] shadow-[var(--shadow-accent-strong)] sm:w-auto"
                 onClick={() => setShowMateriaModal(true)}
               >
                 Adicionar matéria
               </button>
             </div>
 
-            <div className="grid gap-3 text-sm text-[#4b4337] sm:grid-cols-2">
-              <div className="rounded-md border border-[#efe2d1] bg-[#fdf8f1] px-4 py-3">
+            <div className="grid gap-3 text-sm text-[var(--text-medium)] sm:grid-cols-2">
+              <div className="rounded-md border border-[var(--border-soft)] bg-[var(--surface-subtle)] px-4 py-3">
                 Total cadastradas: {filteredSubjects.length}
               </div>
             </div>
 
             <div className="grid gap-3 md:grid-cols-[1fr_220px]">
               <div className="w-full">
-                <label className="text-xs font-semibold text-[#6b6357]">
+                <label className="text-xs font-semibold text-[var(--text-muted)]">
                   Buscar matéria
                 </label>
                 <input
                   type="text"
                   value={materiaSearch}
                   onChange={(event) => setMateriaSearch(event.target.value)}
-                  className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-base text-[#1f1c18]"
+                  className="mt-2 h-11 w-full rounded-md border border-[var(--border-soft)] bg-[var(--surface-white)] px-3 text-base text-[var(--text-strong)]"
                   placeholder="Digite para filtrar"
                 />
               </div>
               <div className="w-full">
-                <label className="text-xs font-semibold text-[#6b6357]">
+                <label className="text-xs font-semibold text-[var(--text-muted)]">
                   Status
                 </label>
                 <select
-                  className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-base text-[#1f1c18]"
+                  className="mt-2 h-11 w-full rounded-md border border-[var(--border-soft)] bg-[var(--surface-white)] px-3 text-base text-[var(--text-strong)]"
                   value={materiaFilter}
                   onChange={(event) =>
                     setMateriaFilter(event.target.value as MateriaFilter)
@@ -1345,42 +1372,27 @@ export default function Configuracoes() {
               </div>
             </div>
 
-            <div className="rounded-md border border-[#efe2d1] bg-[#fdf8f1] p-4">
-              <h3 className="text-sm font-semibold text-[#4b4337]">
+            <div className="rounded-md border border-[var(--border-soft)] bg-[var(--surface-subtle)] p-4">
+              <h3 className="text-sm font-semibold text-[var(--text-medium)]">
                 Matérias cadastradas
               </h3>
               <div className="mt-3 space-y-2">
                 {filteredSubjects.length === 0 ? (
-                  <div className="flex flex-col gap-3 rounded-md border border-[#e2d6c4] bg-[#fbf7f2] px-3 py-3 text-xs text-[#6b6357]">
+                  <div className="flex flex-col gap-3 rounded-md border border-[var(--border)] bg-[var(--surface-soft)] px-3 py-3 text-xs text-[var(--text-muted)]">
                     <div className="flex items-center gap-3">
-                      <span className="flex h-9 w-9 items-center justify-center rounded-full border border-[#e2d6c4] bg-[#fdf8f1] text-[#4b4337]">
-                        <svg
-                          aria-hidden="true"
-                          className="h-4 w-4"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                        >
-                          <circle cx="12" cy="12" r="9" />
-                          <path d="M9 10h.01M15 10h.01" strokeLinecap="round" />
-                          <path
-                            d="M16 16c-1-1-3-1-4-1s-3 0-4 1"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          />
-                        </svg>
+                      <span className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface-subtle)] text-[var(--text-medium)]">
+                        <Smile className="h-4 w-4" aria-hidden="true" />
                       </span>
                       <div>
-                        <p className="font-semibold text-[#4b4337]">
+                        <p className="font-semibold text-[var(--text-medium)]">
                           Nenhuma matéria cadastrada.
                         </p>
-                        <p className="text-xs text-[#6b6357]">
+                        <p className="text-xs text-[var(--text-muted)]">
                           Comece adicionando as matérias que você estuda.
                         </p>
                       </div>
                     </div>
-                    <div className="text-xs text-[#6b6357]">
+                    <div className="text-xs text-[var(--text-muted)]">
                       Passos: clique em “Adicionar matéria” e escolha as
                       matérias do seu objetivo.
                     </div>
@@ -1389,18 +1401,18 @@ export default function Configuracoes() {
                   filteredSubjects.map((item) => (
                     <div
                       key={item.id}
-                      className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-[#e2d6c4] bg-white px-3 py-2 text-xs text-[#4b4337]"
+                      className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-[var(--border)] bg-[var(--surface-white)] px-3 py-2 text-xs text-[var(--text-medium)]"
                     >
                       <div className="flex items-center gap-2">
                         <span className="font-semibold">{item.label}</span>
-                        <span className="rounded-full border border-[#e2d6c4] px-2 py-1 text-[10px] uppercase text-[#6b6357]">
+                        <span className="rounded-full border border-[var(--border)] px-2 py-1 text-[10px] uppercase text-[var(--text-muted)]">
                           {item.isDefault ? "Padrão" : "Personalizada"}
                         </span>
                       </div>
                       <div className="flex items-center gap-2">
                         {!item.isDefault ? (
                           <button
-                            className="min-h-[44px] rounded-md px-3 py-2 text-xs font-semibold text-[#1f5b4b]"
+                            className="min-h-[44px] rounded-md px-3 py-2 text-xs font-semibold text-[var(--accent)]"
                             onClick={() => {
                               setMateriaBeingEdited(item);
                               setEditMateriaName(item.label);
@@ -1411,7 +1423,7 @@ export default function Configuracoes() {
                           </button>
                         ) : null}
                         <button
-                          className="min-h-[44px] rounded-md px-3 py-2 text-xs font-semibold text-[#9d4b3b]"
+                          className="min-h-[44px] rounded-md px-3 py-2 text-xs font-semibold text-[var(--accent-warm)]"
                           onClick={() => {
                             setMateriaToDelete(item);
                             setShowDeleteMateriaModal(true);
@@ -1430,18 +1442,18 @@ export default function Configuracoes() {
       ) : null}
 
       {activeTab === "templates" ? (
-        <section className="rounded-lg border border-[#e6dbc9] bg-[#fffaf2] p-3 sm:p-6">
+        <section className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3 sm:p-6">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
-              <p className="text-xs font-semibold uppercase text-[#6b6357]">
+              <p className="text-xs font-semibold uppercase text-[var(--text-muted)]">
                 Templates
               </p>
-              <h2 className="text-xl font-semibold text-[#1f1c18]">
+              <h2 className="text-xl font-semibold text-[var(--text-strong)]">
                 Ritmos prontos e personalizáveis.
               </h2>
             </div>
             <button
-              className="cursor-pointer rounded-md bg-[#1f5b4b] px-4 py-2 text-sm font-semibold min-h-[44px] text-[#fffaf2] shadow-[0_10px_30px_-20px_rgba(31,91,75,0.7)]"
+              className="cursor-pointer rounded-md bg-[var(--accent-bg)] px-4 py-2 text-sm font-semibold min-h-[44px] text-[var(--text-on-accent)] shadow-[var(--shadow-accent-strong)]"
               onClick={() => setShowTemplateModal(true)}
             >
               Criar template
@@ -1456,34 +1468,34 @@ export default function Configuracoes() {
                   key={template.id}
                   className={`rounded-md border p-4 ${
                     isActive
-                      ? "border-2 border-[#1f5b4b] bg-[#e9f4ef] shadow-[0_12px_28px_-22px_rgba(31,91,75,0.6)]"
-                      : "border-[#efe2d1] bg-[#fdf8f1]"
+                      ? "border-2 border-[var(--accent-border)] bg-[var(--surface-success)] shadow-[var(--shadow-accent-soft)]"
+                      : "border-[var(--border-soft)] bg-[var(--surface-subtle)]"
                   }`}
                 >
                   <div className="flex items-center justify-between">
-                    <p className="text-base font-semibold text-[#1f1c18]">
+                    <p className="text-base font-semibold text-[var(--text-strong)]">
                       {template.title}
                     </p>
                     {isActive ? (
-                      <span className="rounded-full bg-[#1f5b4b] px-2 py-1 text-[10px] uppercase text-white">
+                      <span className="rounded-full bg-[var(--accent-bg)] px-2 py-1 text-[10px] uppercase text-[var(--text-white)]">
                         Ativo
                       </span>
                     ) : null}
                   </div>
-                  <p className="mt-2 text-sm text-[#1f5b4b]">
+                  <p className="mt-2 text-sm text-[var(--accent)]">
                     {template.cadence}
                   </p>
-                  <p className="mt-3 text-sm text-[#5f574a]">
+                  <p className="mt-3 text-sm text-[var(--text-muted)]">
                     {template.detail}
                   </p>
                   <div className="mt-4 flex flex-wrap items-center gap-2">
                     {isActive ? (
-                      <span className="text-xs font-semibold text-[#2f5d4e]">
+                      <span className="text-xs font-semibold text-[var(--accent)]">
                         Este é o template ativo.
                       </span>
                     ) : (
                       <button
-                        className="min-h-[44px] rounded-md px-3 py-2 text-xs font-semibold text-[#1f5b4b]"
+                        className="min-h-[44px] rounded-md px-3 py-2 text-xs font-semibold text-[var(--accent)]"
                         onClick={() => {
                           setTemplateToActivate(template);
                           setShowActivateModal(true);
@@ -1495,7 +1507,7 @@ export default function Configuracoes() {
                     {template.source === "Personalizado" ? (
                       <>
                         <button
-                          className="min-h-[44px] rounded-md px-3 py-2 text-xs font-semibold text-[#4b4337]"
+                          className="min-h-[44px] rounded-md px-3 py-2 text-xs font-semibold text-[var(--text-medium)]"
                           onClick={() => {
                             setTemplateMode("edit");
                             setTemplateBeingEdited(template.id);
@@ -1507,12 +1519,12 @@ export default function Configuracoes() {
                         >
                           Editar
                         </button>
-                        <button className="min-h-[44px] rounded-md px-3 py-2 text-xs font-semibold text-[#9d4b3b]">
+                        <button className="min-h-[44px] rounded-md px-3 py-2 text-xs font-semibold text-[var(--accent-warm)]">
                           Excluir
                         </button>
                       </>
                     ) : (
-                      <button className="min-h-[44px] rounded-md px-3 py-2 text-xs font-semibold text-[#6b6357]">
+                      <button className="min-h-[44px] rounded-md px-3 py-2 text-xs font-semibold text-[var(--text-muted)]">
                         Duplicar
                       </button>
                     )}
@@ -1522,51 +1534,36 @@ export default function Configuracoes() {
             })}
           </div>
 
-          <div className="mt-6 rounded-md border border-[#efe2d1] bg-[#fdf8f1] p-4">
-            <p className="text-xs font-semibold uppercase text-[#6b6357]">
+          <div className="mt-6 rounded-md border border-[var(--border-soft)] bg-[var(--surface-subtle)] p-4">
+            <p className="text-xs font-semibold uppercase text-[var(--text-muted)]">
               Prévia de cadência atual
             </p>
-            <div className="mt-3 flex flex-wrap gap-2 text-xs text-[#4b4337]">
+            <div className="mt-3 flex flex-wrap gap-2 text-xs text-[var(--text-medium)]">
               {activeTemplate?.steps?.length ? (
                 activeTemplate.steps.map((step) => (
                   <span
                     key={step}
-                    className="rounded-full border border-[#e2d6c4] bg-white px-3 py-1"
+                    className="rounded-full border border-[var(--border)] bg-[var(--surface-white)] px-3 py-1"
                   >
                     {step} {step === 1 ? "dia" : "dias"}
                   </span>
                 ))
               ) : (
-                <div className="flex flex-col gap-3 rounded-md border border-[#e2d6c4] bg-[#fbf7f2] px-3 py-3 text-xs text-[#6b6357]">
+                <div className="flex flex-col gap-3 rounded-md border border-[var(--border)] bg-[var(--surface-soft)] px-3 py-3 text-xs text-[var(--text-muted)]">
                   <div className="flex items-center gap-3">
-                    <span className="flex h-8 w-8 items-center justify-center rounded-full border border-[#e2d6c4] bg-[#fdf8f1] text-[#4b4337]">
-                      <svg
-                        aria-hidden="true"
-                        className="h-4 w-4"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                      >
-                        <circle cx="12" cy="12" r="9" />
-                        <path d="M9 10h.01M15 10h.01" strokeLinecap="round" />
-                        <path
-                          d="M16 16c-1-1-3-1-4-1s-3 0-4 1"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                      </svg>
+                    <span className="flex h-8 w-8 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface-subtle)] text-[var(--text-medium)]">
+                      <Smile className="h-4 w-4" aria-hidden="true" />
                     </span>
                     <div>
-                      <p className="font-semibold text-[#4b4337]">
+                      <p className="font-semibold text-[var(--text-medium)]">
                         Nenhum template ativo.
                       </p>
-                      <p className="text-xs text-[#6b6357]">
+                      <p className="text-xs text-[var(--text-muted)]">
                         Ative um template para ver a cadência aqui.
                       </p>
                     </div>
                   </div>
-                  <div className="text-xs text-[#6b6357]">
+                  <div className="text-xs text-[var(--text-muted)]">
                     Passos: clique em “Ativar” em um template disponível.
                   </div>
                 </div>
@@ -1577,31 +1574,22 @@ export default function Configuracoes() {
       ) : null}
 
       {activeTab === "notificacoes" ? (
-        <section className="rounded-lg border border-[#e6dbc9] bg-[#fffaf2] p-3 sm:p-6">
+        <section className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3 sm:p-6">
           <div className="space-y-8">
             <div>
-              <div className="flex items-center gap-2 text-sm font-semibold text-[#4b4337]">
-                <svg
+              <div className="flex items-center gap-2 text-sm font-semibold text-[var(--text-medium)]">
+                <SlidersHorizontal
+                  className="h-5 w-5 text-[var(--accent)]"
                   aria-hidden="true"
-                  className="h-5 w-5 text-[#1f5b4b]"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.7"
-                >
-                  <path d="M4 7h16M4 12h16M4 17h16" strokeLinecap="round" />
-                  <circle cx="9" cy="7" r="2" />
-                  <circle cx="15" cy="12" r="2" />
-                  <circle cx="11" cy="17" r="2" />
-                </svg>
+                />
                 Canais de aviso
               </div>
-              <p className="mt-2 text-xs text-[#6b6357]">
+              <p className="mt-2 text-xs text-[var(--text-muted)]">
                 Defina por onde deseja receber lembretes e alertas.
               </p>
-              <div className="mt-3 grid gap-3 text-sm text-[#4b4337]">
+              <div className="mt-3 grid gap-3 text-sm text-[var(--text-medium)]">
                 <div className="w-full sm:max-w-sm">
-                  <label className="text-xs font-semibold text-[#6b6357]">
+                  <label className="text-xs font-semibold text-[var(--text-muted)]">
                     E-mail
                   </label>
                   <select
@@ -1617,7 +1605,7 @@ export default function Configuracoes() {
                   </select>
                 </div>
                 <div className="w-full sm:max-w-sm">
-                  <label className="text-xs font-semibold text-[#6b6357]">
+                  <label className="text-xs font-semibold text-[var(--text-muted)]">
                     Aplicativo
                   </label>
                   <select
@@ -1635,24 +1623,14 @@ export default function Configuracoes() {
               </div>
             </div>
 
-            <div className="border-t border-[#e6dbc9] pt-6">
-              <div className="flex items-center gap-2 text-sm font-semibold text-[#4b4337]">
-                <svg
-                  aria-hidden="true"
-                  className="h-5 w-5 text-[#1f5b4b]"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.7"
-                >
-                  <rect x="4" y="5" width="16" height="14" rx="2" />
-                  <path d="M8 3v4M16 3v4" strokeLinecap="round" />
-                </svg>
+            <div className="border-t border-[var(--border)] pt-6">
+              <div className="flex items-center gap-2 text-sm font-semibold text-[var(--text-medium)]">
+                <Calendar className="h-5 w-5 text-[var(--accent)]" aria-hidden="true" />
                 Rotina de lembretes
               </div>
-              <div className="mt-3 grid gap-3 text-sm text-[#4b4337]">
+              <div className="mt-3 grid gap-3 text-sm text-[var(--text-medium)]">
                 <div className="w-full sm:max-w-sm">
-                  <label className="text-xs font-semibold text-[#6b6357]">
+                  <label className="text-xs font-semibold text-[var(--text-muted)]">
                     Lembrete diário
                   </label>
                   <select
@@ -1668,7 +1646,7 @@ export default function Configuracoes() {
                   </select>
                 </div>
                 <div className="w-full sm:max-w-sm">
-                  <label className="text-xs font-semibold text-[#6b6357]">
+                  <label className="text-xs font-semibold text-[var(--text-muted)]">
                     Horário do lembrete diário
                   </label>
                   <input
@@ -1680,7 +1658,7 @@ export default function Configuracoes() {
                   />
                 </div>
                 <div className="w-full sm:max-w-sm">
-                  <label className="text-xs font-semibold text-[#6b6357]">
+                  <label className="text-xs font-semibold text-[var(--text-muted)]">
                     Resumo semanal
                   </label>
                   <select
@@ -1696,7 +1674,7 @@ export default function Configuracoes() {
                   </select>
                 </div>
                 <div className="w-full sm:max-w-sm">
-                  <label className="text-xs font-semibold text-[#6b6357]">
+                  <label className="text-xs font-semibold text-[var(--text-muted)]">
                     Dia do resumo
                   </label>
                   <select
@@ -1715,7 +1693,7 @@ export default function Configuracoes() {
                   </select>
                 </div>
                 <div className="w-full sm:max-w-sm">
-                  <label className="text-xs font-semibold text-[#6b6357]">
+                  <label className="text-xs font-semibold text-[var(--text-muted)]">
                     Horário do resumo semanal
                   </label>
                   <input
@@ -1729,25 +1707,17 @@ export default function Configuracoes() {
               </div>
             </div>
 
-            <div className="border-t border-[#e6dbc9] pt-6">
-              <div className="flex items-center gap-2 text-sm font-semibold text-[#4b4337]">
-                <svg
+            <div className="border-t border-[var(--border)] pt-6">
+              <div className="flex items-center gap-2 text-sm font-semibold text-[var(--text-medium)]">
+                <AlertCircle
+                  className="h-5 w-5 text-[var(--accent)]"
                   aria-hidden="true"
-                  className="h-5 w-5 text-[#1f5b4b]"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.7"
-                >
-                  <path d="M12 8v5" strokeLinecap="round" />
-                  <path d="M12 16h.01" strokeLinecap="round" />
-                  <circle cx="12" cy="12" r="9" />
-                </svg>
+                />
                 Prioridades de alerta
               </div>
-              <div className="mt-3 space-y-3 text-sm text-[#4b4337]">
+              <div className="mt-3 space-y-3 text-sm text-[var(--text-medium)]">
                 <div className="w-full sm:max-w-sm">
-                  <label className="text-xs font-semibold text-[#6b6357]">
+                  <label className="text-xs font-semibold text-[var(--text-muted)]">
                     Revisões atrasadas no topo
                   </label>
                   <select
@@ -1763,7 +1733,7 @@ export default function Configuracoes() {
                   </select>
                 </div>
                 <div className="w-full sm:max-w-sm">
-                  <label className="text-xs font-semibold text-[#6b6357]">
+                  <label className="text-xs font-semibold text-[var(--text-muted)]">
                     Nível de urgência
                   </label>
                   <select
@@ -1784,24 +1754,17 @@ export default function Configuracoes() {
               </div>
             </div>
 
-            <div className="border-t border-[#e6dbc9] pt-6">
-              <div className="flex items-center gap-2 text-sm font-semibold text-[#4b4337]">
-                <svg
+            <div className="border-t border-[var(--border)] pt-6">
+              <div className="flex items-center gap-2 text-sm font-semibold text-[var(--text-medium)]">
+                <MessageSquare
+                  className="h-5 w-5 text-[var(--accent)]"
                   aria-hidden="true"
-                  className="h-5 w-5 text-[#1f5b4b]"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.7"
-                >
-                  <rect x="4" y="6" width="16" height="12" rx="2" />
-                  <path d="M7 9h10M7 13h6" strokeLinecap="round" />
-                </svg>
+                />
                 Prévia das notificações
               </div>
-              <div className="mt-3 w-full sm:max-w-sm rounded-md border border-[#efe2d1] bg-[#fdf8f1] px-4 py-3 text-sm text-[#4b4337]">
+              <div className="mt-3 w-full sm:max-w-sm rounded-md border border-[var(--border-soft)] bg-[var(--surface-subtle)] px-4 py-3 text-sm text-[var(--text-medium)]">
                 <p>Hoje você tem 3 revisões pendentes.</p>
-                <p className="mt-1 text-xs text-[#6b6357]">
+                <p className="mt-1 text-xs text-[var(--text-muted)]">
                   Lembrete diário programado para {notifyDailyTime}. Resumo
                   semanal em {notifyWeeklyDay} às {notifyWeeklyTime}.
                 </p>
@@ -1812,27 +1775,13 @@ export default function Configuracoes() {
               <button
                 className={`min-h-[44px] rounded-md px-4 py-2 text-sm font-semibold inline-flex items-center gap-2 ${
                   editingNotifications
-                    ? "bg-[#1f5b4b] text-[#fffaf2]"
-                    : "border border-[#e2d6c4] bg-[#f0e6d9] text-[#4b4337]"
+                    ? "bg-[var(--accent-bg)] text-[var(--text-on-accent)]"
+                    : "border border-[var(--border)] bg-[var(--surface-strong)] text-[var(--text-medium)]"
                 }`}
                 onClick={handleNotificationsToggle}
               >
                 {!editingNotifications ? (
-                  <svg
-                    aria-hidden="true"
-                    className="h-4 w-4"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                  >
-                    <path d="M12 20h9" strokeLinecap="round" />
-                    <path
-                      d="M16.5 3.5l4 4L7 21H3v-4L16.5 3.5z"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
+                  <Pencil className="h-4 w-4" aria-hidden="true" />
                 ) : null}
                 {editingNotifications
                   ? "Salvar notificações"
@@ -1840,19 +1789,10 @@ export default function Configuracoes() {
               </button>
               {editingNotifications ? (
                 <button
-                  className="min-h-[44px] h-11 rounded-md border border-[#e2d6c4] bg-[#f3f3f3] px-4 py-2 text-sm font-semibold text-[#6b6357] inline-flex items-center gap-2"
+                  className="min-h-[44px] h-11 rounded-md border border-[var(--border)] bg-[var(--surface-neutral)] px-4 py-2 text-sm font-semibold text-[var(--text-muted)] inline-flex items-center gap-2"
                   onClick={handleNotificationsCancel}
                 >
-                  <svg
-                    aria-hidden="true"
-                    className="h-4 w-4"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                  >
-                    <path d="M6 6l12 12M18 6l-12 12" strokeLinecap="round" />
-                  </svg>
+                  <X className="h-4 w-4" aria-hidden="true" />
                   Cancelar
                 </button>
               ) : null}
@@ -1862,43 +1802,35 @@ export default function Configuracoes() {
       ) : null}
 
       {activeTab === "seguranca" ? (
-        <section className="rounded-lg border border-[#e6dbc9] bg-[#fffaf2] p-3 sm:p-6">
+        <section className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3 sm:p-6">
           <div className="space-y-8">
             <div>
-              <div className="flex items-center gap-2 text-sm font-semibold text-[#4b4337]">
-                <svg
-                  aria-hidden="true"
-                  className="h-5 w-5 text-[#1f5b4b]"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.7"
-                >
-                  <path d="M12 3l8 4v5c0 5-3.5 7.5-8 9-4.5-1.5-8-4-8-9V7l8-4z" />
-                </svg>
+              <div className="flex items-center gap-2 text-sm font-semibold text-[var(--text-medium)]">
+                <Shield className="h-5 w-5 text-[var(--accent)]" aria-hidden="true" />
                 Acesso e senha
               </div>
-              <div className="mt-3 grid gap-3 text-sm text-[#4b4337]">
+              <div className="mt-3 grid gap-3 text-sm text-[var(--text-medium)]">
                 <div className="w-full sm:max-w-sm">
-                  <label className="text-xs font-semibold text-[#6b6357]">
+                  <label className="text-xs font-semibold text-[var(--text-muted)]">
                     Senha atual
                   </label>
                   <input
                     type="password"
-                    value={editingSecurity ? "" : "********"}
+                    value={editingSecurity ? currentPassword : "********"}
+                    onChange={(event) => setCurrentPassword(event.target.value)}
                     disabled={!editingSecurity}
                     className={editableFieldClass(editingSecurity)}
                     placeholder={editingSecurity ? "Digite sua senha atual" : ""}
                   />
                   <button
-                    className="mt-2 text-xs font-semibold text-[#1f5b4b]"
+                    className="mt-2 text-xs font-semibold text-[var(--accent)]"
                     onClick={() => setShowForgotModal(true)}
                   >
                     Esqueci minha senha
                   </button>
                 </div>
                 <div className="w-full sm:max-w-sm">
-                  <label className="text-xs font-semibold text-[#6b6357]">
+                  <label className="text-xs font-semibold text-[var(--text-muted)]">
                     Nova senha
                   </label>
                   <input
@@ -1908,9 +1840,21 @@ export default function Configuracoes() {
                     disabled={!editingSecurity}
                     className={editableFieldClass(editingSecurity)}
                   />
+                  {editingSecurity ? (
+                    <div className="mt-2 text-xs text-[var(--text-muted)]">
+                      <span
+                        className={
+                          passwordHasMinLength ? "text-[var(--accent)]" : undefined
+                        }
+                      >
+                        {passwordHasMinLength ? "✓" : "•"} Mínimo de{" "}
+                        {minPasswordLength} caracteres
+                      </span>
+                    </div>
+                  ) : null}
                 </div>
                 <div className="w-full sm:max-w-sm">
-                  <label className="text-xs font-semibold text-[#6b6357]">
+                  <label className="text-xs font-semibold text-[var(--text-muted)]">
                     Confirmar senha
                   </label>
                   <input
@@ -1926,49 +1870,41 @@ export default function Configuracoes() {
                 <button
                   className={`min-h-[44px] rounded-md px-4 py-2 text-sm font-semibold inline-flex items-center gap-2 ${
                     editingSecurity
-                      ? "bg-[#1f5b4b] text-[#fffaf2]"
-                      : "border border-[#e2d6c4] bg-[#f0e6d9] text-[#4b4337]"
+                      ? "bg-[var(--accent-bg)] text-[var(--text-on-accent)] disabled:bg-[var(--accent-bg-disabled)]"
+                      : "border border-[var(--border)] bg-[var(--surface-strong)] text-[var(--text-medium)]"
                   }`}
                   onClick={handleSecurityToggle}
+                  disabled={
+                    securityStatus === "loading" ||
+                    (editingSecurity &&
+                      (!currentPassword ||
+                        !newPassword ||
+                        !confirmPassword ||
+                        !isSecurityPasswordValid ||
+                        newPassword !== confirmPassword))
+                  }
                 >
-                  {!editingSecurity ? (
-                    <svg
-                      aria-hidden="true"
-                      className="h-4 w-4"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.8"
-                    >
-                      <path d="M12 20h9" strokeLinecap="round" />
-                      <path
-                        d="M16.5 3.5l4 4L7 21H3v-4L16.5 3.5z"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
-                  ) : null}
+                {!editingSecurity ? (
+                  <Pencil className="h-4 w-4" aria-hidden="true" />
+                ) : null}
                   {editingSecurity ? "Salvar segurança" : "Editar segurança"}
                 </button>
                 {editingSecurity ? (
                   <button
-                    className="min-h-[44px] h-11 rounded-md border border-[#e2d6c4] bg-[#f3f3f3] px-4 py-2 text-sm font-semibold text-[#6b6357] inline-flex items-center gap-2"
+                    className="min-h-[44px] h-11 rounded-md border border-[var(--border)] bg-[var(--surface-neutral)] px-4 py-2 text-sm font-semibold text-[var(--text-muted)] inline-flex items-center gap-2"
                     onClick={handleSecurityCancel}
+                    disabled={securityStatus === "loading"}
                   >
-                    <svg
-                      aria-hidden="true"
-                      className="h-4 w-4"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                    >
-                      <path d="M6 6l12 12M18 6l-12 12" strokeLinecap="round" />
-                    </svg>
+                    <X className="h-4 w-4" aria-hidden="true" />
                     Cancelar
                   </button>
                 ) : null}
               </div>
+              {securityStatus === "error" ? (
+                <div className="mt-3 rounded-md border border-[var(--border-warm)] bg-[var(--surface-warm)] px-4 py-3 text-xs text-[var(--accent-warm)]">
+                  {securityMessage}
+                </div>
+              ) : null}
             </div>
 
           </div>
@@ -1976,26 +1912,17 @@ export default function Configuracoes() {
       ) : null}
 
       {activeTab === "privacidade" ? (
-        <section className="rounded-lg border border-[#e6dbc9] bg-[#fffaf2] p-3 sm:p-6">
-          <div className="space-y-4 text-sm text-[#4b4337]">
-            <div className="flex items-center gap-2 text-sm font-semibold text-[#4b4337]">
-              <svg
-                aria-hidden="true"
-                className="h-5 w-5 text-[#1f5b4b]"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.7"
-              >
-                <path d="M12 3l8 4v5c0 5-3.5 7.5-8 9-4.5-1.5-8-4-8-9V7l8-4z" />
-              </svg>
+        <section className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3 sm:p-6">
+          <div className="space-y-4 text-sm text-[var(--text-medium)]">
+            <div className="flex items-center gap-2 text-sm font-semibold text-[var(--text-medium)]">
+              <Lock className="h-5 w-5 text-[var(--accent)]" aria-hidden="true" />
               Privacidade
             </div>
             <label
               className={`flex w-full sm:max-w-sm items-center gap-3 rounded-md border px-4 py-3 ${
                 editingPrivacy
-                  ? "border-[#1f5b4b] bg-[#fffaf2]"
-                  : "border-[#efe2d1] bg-[#fdf8f1]"
+                  ? "border-[var(--accent-border)] bg-[var(--surface)]"
+                  : "border-[var(--border-soft)] bg-[var(--surface-subtle)]"
               }`}
             >
               <input
@@ -2010,8 +1937,8 @@ export default function Configuracoes() {
             <label
               className={`flex w-full sm:max-w-sm items-center gap-3 rounded-md border px-4 py-3 ${
                 editingPrivacy
-                  ? "border-[#1f5b4b] bg-[#fffaf2]"
-                  : "border-[#efe2d1] bg-[#fdf8f1]"
+                  ? "border-[var(--accent-border)] bg-[var(--surface)]"
+                  : "border-[var(--border-soft)] bg-[var(--surface-subtle)]"
               }`}
             >
               <input
@@ -2027,50 +1954,27 @@ export default function Configuracoes() {
               <button
                 className={`min-h-[44px] rounded-md px-4 py-2 text-sm font-semibold inline-flex items-center gap-2 ${
                   editingPrivacy
-                    ? "bg-[#1f5b4b] text-[#fffaf2]"
-                    : "border border-[#e2d6c4] bg-[#f0e6d9] text-[#4b4337]"
+                    ? "bg-[var(--accent-bg)] text-[var(--text-on-accent)]"
+                    : "border border-[var(--border)] bg-[var(--surface-strong)] text-[var(--text-medium)]"
                 }`}
                 onClick={handlePrivacyToggle}
               >
                 {!editingPrivacy ? (
-                  <svg
-                    aria-hidden="true"
-                    className="h-4 w-4"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                  >
-                    <path d="M12 20h9" strokeLinecap="round" />
-                    <path
-                      d="M16.5 3.5l4 4L7 21H3v-4L16.5 3.5z"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
+                  <Pencil className="h-4 w-4" aria-hidden="true" />
                 ) : null}
                 {editingPrivacy ? "Salvar privacidade" : "Editar privacidade"}
               </button>
               {editingPrivacy ? (
                 <button
-                  className="min-h-[44px] h-11 rounded-md border border-[#e2d6c4] bg-[#f3f3f3] px-4 py-2 text-sm font-semibold text-[#6b6357] inline-flex items-center gap-2"
+                  className="min-h-[44px] h-11 rounded-md border border-[var(--border)] bg-[var(--surface-neutral)] px-4 py-2 text-sm font-semibold text-[var(--text-muted)] inline-flex items-center gap-2"
                   onClick={handlePrivacyCancel}
                 >
-                  <svg
-                    aria-hidden="true"
-                    className="h-4 w-4"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                  >
-                    <path d="M6 6l12 12M18 6l-12 12" strokeLinecap="round" />
-                  </svg>
+                  <X className="h-4 w-4" aria-hidden="true" />
                   Cancelar
                 </button>
               ) : null}
               <button
-                className="rounded-md border border-[#e2d6c4] bg-[#f0e6d9] px-4 py-2 text-sm font-semibold min-h-[44px] text-[#4b4337]"
+                className="rounded-md border border-[var(--border)] bg-[var(--surface-strong)] px-4 py-2 text-sm font-semibold min-h-[44px] text-[var(--text-medium)]"
                 disabled={!editingPrivacy || (!confirmExport && !confirmDelete)}
               >
                 Aplicar ajustes
@@ -2081,16 +1985,16 @@ export default function Configuracoes() {
       ) : null}
 
       {activeTab === "planos" ? (
-        <section className="rounded-lg border border-[#e6dbc9] bg-[#fffaf2] p-3 sm:p-6">
+        <section className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3 sm:p-6">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
-              <p className="text-xs font-semibold uppercase text-[#6b6357]">
+              <p className="text-xs font-semibold uppercase text-[var(--text-muted)]">
                 Planos
               </p>
-              <h2 className="text-xl font-semibold text-[#1f1c18]">
+              <h2 className="text-xl font-semibold text-[var(--text-strong)]">
                 Escolha o plano ideal para sua rotina.
               </h2>
-              <p className="mt-1 text-sm text-[#5f574a]">
+              <p className="mt-1 text-sm text-[var(--text-muted)]">
                 O plano ativo define os recursos disponíveis no sistema.
               </p>
             </div>
@@ -2125,40 +2029,40 @@ export default function Configuracoes() {
                   key={plan.name}
                   className={`rounded-md border p-5 ${
                     isActive
-                      ? "border-2 border-[#1f5b4b] bg-[#e9f4ef] shadow-[0_12px_28px_-22px_rgba(31,91,75,0.6)]"
-                      : "border-[#efe2d1] bg-[#fdf8f1]"
+                      ? "border-2 border-[var(--accent-border)] bg-[var(--surface-success)] shadow-[var(--shadow-accent-soft)]"
+                      : "border-[var(--border-soft)] bg-[var(--surface-subtle)]"
                   }`}
                 >
                   <div className="flex items-center justify-between">
-                    <p className="text-base font-semibold text-[#1f1c18]">
+                    <p className="text-base font-semibold text-[var(--text-strong)]">
                       {plan.name}
                     </p>
                     {isActive ? (
-                      <span className="rounded-full bg-[#1f5b4b] px-2 py-1 text-[10px] uppercase text-white">
+                      <span className="rounded-full bg-[var(--accent-bg)] px-2 py-1 text-[10px] uppercase text-[var(--text-white)]">
                         Ativo
                       </span>
                     ) : null}
                   </div>
-                  <p className="mt-2 text-xl font-semibold text-[#1f5b4b]">
+                  <p className="mt-2 text-xl font-semibold text-[var(--accent)]">
                     {plan.price}
                   </p>
-                  <p className="mt-2 text-sm text-[#5f574a]">{plan.desc}</p>
-                  <ul className="mt-4 space-y-2 text-xs text-[#4b4337]">
+                  <p className="mt-2 text-sm text-[var(--text-muted)]">{plan.desc}</p>
+                  <ul className="mt-4 space-y-2 text-xs text-[var(--text-medium)]">
                     {plan.features.map((feature) => (
                       <li key={feature} className="flex items-center gap-2">
-                        <span className="h-1.5 w-1.5 rounded-full bg-[#1f5b4b]" />
+                        <span className="h-1.5 w-1.5 rounded-full bg-[var(--accent-bg)]" />
                         {feature}
                       </li>
                     ))}
                   </ul>
                   <div className="mt-5">
                     {isActive ? (
-                      <span className="text-xs font-semibold text-[#2f5d4e]">
+                      <span className="text-xs font-semibold text-[var(--accent)]">
                         Este é o seu plano atual.
                       </span>
                     ) : (
                       <button
-                        className="rounded-md bg-[#1f5b4b] px-4 py-2 text-sm font-semibold min-h-[44px] text-[#fffaf2]"
+                        className="rounded-md bg-[var(--accent-bg)] px-4 py-2 text-sm font-semibold min-h-[44px] text-[var(--text-on-accent)]"
                         onClick={() =>
                           handlePlanChange(plan.name as "Gratuito" | "Premium")
                         }
@@ -2176,20 +2080,20 @@ export default function Configuracoes() {
 
       {showMateriaModal ? (
       <div className="fixed inset-0 z-50 flex items-center justify-center modal-overlay p-4">
-        <div className="w-full max-w-md rounded-lg bg-[#fffaf2] p-5 modal-shadow sm:p-6 max-h-[85vh] overflow-y-auto">
-            <h3 className="text-lg font-semibold text-[#1f1c18]">
+        <div className="w-full max-w-md rounded-lg bg-[var(--surface)] p-5 modal-shadow sm:p-6 max-h-[85vh] overflow-y-auto">
+            <h3 className="text-lg font-semibold text-[var(--text-strong)]">
               Adicionar matéria
             </h3>
-            <p className="mt-2 text-sm text-[#5f574a]">
+            <p className="mt-2 text-sm text-[var(--text-muted)]">
               Essa matéria ficará disponível na sua conta.
             </p>
             <div className="mt-4">
-              <label className="text-xs font-semibold text-[#6b6357]">
+              <label className="text-xs font-semibold text-[var(--text-muted)]">
                 Nome da matéria
               </label>
               <input
                 type="text"
-                className="mt-2 h-11 w-full rounded-md border border-[#e2d6c4] bg-white px-3 text-base text-[#1f1c18]"
+                className="mt-2 h-11 w-full rounded-md border border-[var(--border)] bg-[var(--surface-white)] px-3 text-base text-[var(--text-strong)]"
                 value={novaMateria}
                 onChange={(event) => setNovaMateria(event.target.value)}
                 placeholder="Ex: Direito Tributário"
@@ -2197,7 +2101,7 @@ export default function Configuracoes() {
             </div>
             <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-end">
               <button
-                className="rounded-md bg-[#1f5b4b] px-4 py-2 text-sm font-semibold min-h-[44px] text-[#fffaf2] disabled:cursor-not-allowed disabled:bg-[#9fbfb5]"
+                className="rounded-md bg-[var(--accent-bg)] px-4 py-2 text-sm font-semibold min-h-[44px] text-[var(--text-on-accent)] disabled:cursor-not-allowed disabled:bg-[var(--accent-disabled)]"
                 disabled={!novaMateria.trim()}
                 onClick={async () => {
                   if (!userId) return;
@@ -2259,7 +2163,7 @@ export default function Configuracoes() {
                 Salvar matéria
               </button>
               <button
-                className="rounded-md border border-[#e1e1e1] bg-[#f3f3f3] px-4 py-2 text-sm font-semibold min-h-[44px] h-11 text-[#6b6357]"
+                className="rounded-md border border-[var(--border-neutral)] bg-[var(--surface-neutral)] px-4 py-2 text-sm font-semibold min-h-[44px] h-11 text-[var(--text-muted)]"
                 onClick={() => {
                   setNovaMateria("");
                   setShowMateriaModal(false);
@@ -2274,20 +2178,20 @@ export default function Configuracoes() {
 
       {showEditMateriaModal && materiaBeingEdited ? (
       <div className="fixed inset-0 z-50 flex items-center justify-center modal-overlay p-4">
-        <div className="w-full max-w-md rounded-lg bg-[#fffaf2] p-5 modal-shadow sm:p-6 max-h-[85vh] overflow-y-auto">
-            <h3 className="text-lg font-semibold text-[#1f1c18]">
+        <div className="w-full max-w-md rounded-lg bg-[var(--surface)] p-5 modal-shadow sm:p-6 max-h-[85vh] overflow-y-auto">
+            <h3 className="text-lg font-semibold text-[var(--text-strong)]">
               Editar matéria
             </h3>
-            <p className="mt-2 text-sm text-[#5f574a]">
+            <p className="mt-2 text-sm text-[var(--text-muted)]">
               Atualize o nome da matéria para manter seu banco organizado.
             </p>
             <div className="mt-4">
-              <label className="text-xs font-semibold text-[#6b6357]">
+              <label className="text-xs font-semibold text-[var(--text-muted)]">
                 Nome da matéria
               </label>
               <input
                 type="text"
-                className="mt-2 h-11 w-full rounded-md border border-[#e2d6c4] bg-white px-3 text-base text-[#1f1c18]"
+                className="mt-2 h-11 w-full rounded-md border border-[var(--border)] bg-[var(--surface-white)] px-3 text-base text-[var(--text-strong)]"
                 value={editMateriaName}
                 onChange={(event) => setEditMateriaName(event.target.value)}
                 placeholder="Ex: Direito Constitucional"
@@ -2295,7 +2199,7 @@ export default function Configuracoes() {
             </div>
             <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-end">
               <button
-                className="rounded-md bg-[#1f5b4b] px-4 py-2 text-sm font-semibold min-h-[44px] text-[#fffaf2] disabled:cursor-not-allowed disabled:bg-[#9fbfb5]"
+                className="rounded-md bg-[var(--accent-bg)] px-4 py-2 text-sm font-semibold min-h-[44px] text-[var(--text-on-accent)] disabled:cursor-not-allowed disabled:bg-[var(--accent-disabled)]"
                 disabled={!editMateriaName.trim()}
                 onClick={async () => {
                   if (!materiaBeingEdited) return;
@@ -2347,7 +2251,7 @@ export default function Configuracoes() {
                 Salvar alterações
               </button>
               <button
-                className="rounded-md border border-[#e1e1e1] bg-[#f3f3f3] px-4 py-2 text-sm font-semibold min-h-[44px] h-11 text-[#6b6357]"
+                className="rounded-md border border-[var(--border-neutral)] bg-[var(--surface-neutral)] px-4 py-2 text-sm font-semibold min-h-[44px] h-11 text-[var(--text-muted)]"
                 onClick={() => {
                   setShowEditMateriaModal(false);
                   setMateriaBeingEdited(null);
@@ -2363,24 +2267,24 @@ export default function Configuracoes() {
 
       {showDeleteMateriaModal && materiaToDelete ? (
       <div className="fixed inset-0 z-50 flex items-center justify-center modal-overlay p-4">
-        <div className="w-full max-w-md rounded-lg bg-[#fffaf2] p-5 modal-shadow sm:p-6 max-h-[85vh] overflow-y-auto">
-            <h3 className="text-lg font-semibold text-[#1f1c18]">
+        <div className="w-full max-w-md rounded-lg bg-[var(--surface)] p-5 modal-shadow sm:p-6 max-h-[85vh] overflow-y-auto">
+            <h3 className="text-lg font-semibold text-[var(--text-strong)]">
               Remover matéria
             </h3>
-            <p className="mt-2 text-sm text-[#5f574a]">
+            <p className="mt-2 text-sm text-[var(--text-muted)]">
               Tem certeza que deseja remover{" "}
-              <span className="font-semibold text-[#1f5b4b]">
+              <span className="font-semibold text-[var(--accent)]">
                 {materiaToDelete.label}
               </span>{" "}
               da sua lista?
             </p>
-            <div className="mt-4 rounded-md border border-[#efe2d1] bg-[#fdf8f1] px-4 py-3 text-sm text-[#4b4337]">
+            <div className="mt-4 rounded-md border border-[var(--border-soft)] bg-[var(--surface-subtle)] px-4 py-3 text-sm text-[var(--text-medium)]">
               A matéria será removida apenas do seu perfil. Você pode cadastrar
               novamente quando precisar.
             </div>
             <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-end">
               <button
-                className="rounded-md bg-[#9d4b3b] px-4 py-2 text-sm font-semibold min-h-[44px] text-[#fffaf2]"
+                className="rounded-md bg-[var(--accent-warm-strong-bg)] px-4 py-2 text-sm font-semibold min-h-[44px] text-[var(--text-on-accent)]"
                 onClick={async () => {
                   if (!materiaToDelete) return;
                   if (materiaToDelete.isDefault) {
@@ -2430,7 +2334,7 @@ export default function Configuracoes() {
                 Confirmar remoção
               </button>
               <button
-                className="rounded-md border border-[#e1e1e1] bg-[#f3f3f3] px-4 py-2 text-sm font-semibold min-h-[44px] h-11 text-[#6b6357]"
+                className="rounded-md border border-[var(--border-neutral)] bg-[var(--surface-neutral)] px-4 py-2 text-sm font-semibold min-h-[44px] h-11 text-[var(--text-muted)]"
                 onClick={() => {
                   setShowDeleteMateriaModal(false);
                   setMateriaToDelete(null);
@@ -2445,28 +2349,28 @@ export default function Configuracoes() {
 
       {showTemplateModal ? (
       <div className="fixed inset-0 z-50 flex items-center justify-center modal-overlay p-4">
-        <div className="w-full max-w-md rounded-lg bg-[#fffaf2] p-5 modal-shadow sm:p-6 max-h-[85vh] overflow-y-auto">
-            <h3 className="text-lg font-semibold text-[#1f1c18]">
+        <div className="w-full max-w-md rounded-lg bg-[var(--surface)] p-5 modal-shadow sm:p-6 max-h-[85vh] overflow-y-auto">
+            <h3 className="text-lg font-semibold text-[var(--text-strong)]">
               {templateMode === "edit" ? "Editar template" : "Criar template"}
             </h3>
-            <p className="mt-2 text-sm text-[#5f574a]">
+            <p className="mt-2 text-sm text-[var(--text-muted)]">
               Defina o nome e os intervalos em dias.
             </p>
             <div className="mt-4 space-y-3">
               <div>
-                <label className="text-xs font-semibold text-[#6b6357]">
+                <label className="text-xs font-semibold text-[var(--text-muted)]">
                   Nome do template
                 </label>
                 <input
                   type="text"
                   value={templateName}
                   onChange={(event) => setTemplateName(event.target.value)}
-                  className="mt-2 h-11 w-full rounded-md border border-[#e2d6c4] bg-white px-3 text-base text-[#1f1c18]"
+                  className="mt-2 h-11 w-full rounded-md border border-[var(--border)] bg-[var(--surface-white)] px-3 text-base text-[var(--text-strong)]"
                   placeholder="Ex: Revisão rápida"
                 />
               </div>
               <div>
-                <label className="text-xs font-semibold text-[#6b6357]">
+                <label className="text-xs font-semibold text-[var(--text-muted)]">
                   Cadência (em dias)
                 </label>
                 <div className="mt-2 flex gap-2">
@@ -2475,12 +2379,12 @@ export default function Configuracoes() {
                     min={1}
                     value={cadenceInput}
                     onChange={(event) => setCadenceInput(event.target.value)}
-                    className="h-11 w-full rounded-md border border-[#e2d6c4] bg-white px-3 text-base text-[#1f1c18]"
+                    className="h-11 w-full rounded-md border border-[var(--border)] bg-[var(--surface-white)] px-3 text-base text-[var(--text-strong)]"
                     placeholder="Adicionar dias"
                   />
                   <button
                     type="button"
-                    className="rounded-md border border-[#e2d6c4] bg-[#f0e6d9] px-3 text-xs font-semibold text-[#4b4337]"
+                    className="rounded-md border border-[var(--border)] bg-[var(--surface-strong)] px-3 text-xs font-semibold text-[var(--text-medium)]"
                     onClick={() => {
                       const value = Number(cadenceInput);
                       if (!value || value <= 0) return;
@@ -2495,12 +2399,12 @@ export default function Configuracoes() {
                   </button>
                 </div>
               </div>
-              <div className="flex flex-wrap gap-2 text-xs text-[#4b4337]">
+              <div className="flex flex-wrap gap-2 text-xs text-[var(--text-medium)]">
                 {templateCadence.map((step) => (
                   <button
                     key={step}
                     type="button"
-                    className="flex items-center gap-2 rounded-full border border-[#e2d6c4] bg-white px-3 py-1"
+                    className="flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--surface-white)] px-3 py-1"
                     onClick={() =>
                       setTemplateCadence((prev) =>
                         prev.filter((item) => item !== step)
@@ -2508,17 +2412,17 @@ export default function Configuracoes() {
                     }
                   >
                     {step}d
-                    <span className="text-[10px] text-[#9d4b3b]">remover</span>
+                    <span className="text-[10px] text-[var(--accent-warm)]">remover</span>
                   </button>
                 ))}
               </div>
-              <div className="rounded-md border border-[#efe2d1] bg-[#fdf8f1] px-3 py-2 text-xs text-[#6b6357]">
+              <div className="rounded-md border border-[var(--border-soft)] bg-[var(--surface-subtle)] px-3 py-2 text-xs text-[var(--text-muted)]">
                 Sequência: {templateCadence.map((step) => `${step}d`).join(", ")}
               </div>
             </div>
             <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-end">
               <button
-                className="cursor-pointer rounded-md bg-[#1f5b4b] px-4 py-2 text-sm font-semibold min-h-[44px] text-[#fffaf2] disabled:cursor-not-allowed disabled:bg-[#9fbfb5]"
+                className="cursor-pointer rounded-md bg-[var(--accent-bg)] px-4 py-2 text-sm font-semibold min-h-[44px] text-[var(--text-on-accent)] disabled:cursor-not-allowed disabled:bg-[var(--accent-disabled)]"
                 disabled={!templateName.trim() || templateCadence.length === 0}
                 onClick={async () => {
                   if (!userId) return;
@@ -2642,7 +2546,7 @@ export default function Configuracoes() {
                   : "Salvar template"}
               </button>
               <button
-                className="cursor-pointer rounded-md border border-[#e1e1e1] bg-[#f3f3f3] px-4 py-2 text-sm font-semibold min-h-[44px] h-11 text-[#6b6357]"
+                className="cursor-pointer rounded-md border border-[var(--border-neutral)] bg-[var(--surface-neutral)] px-4 py-2 text-sm font-semibold min-h-[44px] h-11 text-[var(--text-muted)]"
                 onClick={() => {
                   setShowTemplateModal(false);
                   setTemplateName("");
@@ -2661,24 +2565,24 @@ export default function Configuracoes() {
 
       {showActivateModal && templateToActivate ? (
       <div className="fixed inset-0 z-50 flex items-center justify-center modal-overlay p-4">
-        <div className="w-full max-w-md rounded-lg bg-[#fffaf2] p-5 modal-shadow sm:p-6 max-h-[85vh] overflow-y-auto">
-            <h3 className="text-lg font-semibold text-[#1f1c18]">
+        <div className="w-full max-w-md rounded-lg bg-[var(--surface)] p-5 modal-shadow sm:p-6 max-h-[85vh] overflow-y-auto">
+            <h3 className="text-lg font-semibold text-[var(--text-strong)]">
               Ativar template
             </h3>
-            <p className="mt-2 text-sm text-[#5f574a]">
+            <p className="mt-2 text-sm text-[var(--text-muted)]">
               Tem certeza que deseja ativar o template{" "}
-              <span className="font-semibold text-[#1f5b4b]">
+              <span className="font-semibold text-[var(--accent)]">
                 {templateToActivate.title}
               </span>
               ?
             </p>
-            <div className="mt-4 rounded-md border border-[#efe2d1] bg-[#fdf8f1] px-4 py-3 text-sm text-[#4b4337]">
+            <div className="mt-4 rounded-md border border-[var(--border-soft)] bg-[var(--surface-subtle)] px-4 py-3 text-sm text-[var(--text-medium)]">
               O novo template será usado nas próximas revisões. As revisões
               anteriores seguirão o template usado no momento do estudo.
             </div>
             <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-end">
               <button
-                className="cursor-pointer rounded-md bg-[#1f5b4b] px-4 py-2 text-sm font-semibold min-h-[44px] text-[#fffaf2]"
+                className="cursor-pointer rounded-md bg-[var(--accent-bg)] px-4 py-2 text-sm font-semibold min-h-[44px] text-[var(--text-on-accent)]"
                 onClick={async () => {
                   const resolvedUserId = await resolveUserId();
                   if (!resolvedUserId) return;
@@ -2744,7 +2648,7 @@ export default function Configuracoes() {
                 Confirmar ativação
               </button>
               <button
-                className="cursor-pointer rounded-md border border-[#e1e1e1] bg-[#f3f3f3] px-4 py-2 text-sm font-semibold min-h-[44px] h-11 text-[#6b6357]"
+                className="cursor-pointer rounded-md border border-[var(--border-neutral)] bg-[var(--surface-neutral)] px-4 py-2 text-sm font-semibold min-h-[44px] h-11 text-[var(--text-muted)]"
                 onClick={() => {
                   setShowActivateModal(false);
                   setTemplateToActivate(null);
@@ -2759,31 +2663,42 @@ export default function Configuracoes() {
 
       {showForgotModal ? (
       <div className="fixed inset-0 z-50 flex items-center justify-center modal-overlay p-4">
-        <div className="w-full max-w-md rounded-lg bg-[#fffaf2] p-5 modal-shadow sm:p-6 max-h-[85vh] overflow-y-auto">
-            <h3 className="text-lg font-semibold text-[#1f1c18]">
+        <div className="w-full max-w-md rounded-lg bg-[var(--surface)] p-5 modal-shadow sm:p-6 max-h-[85vh] overflow-y-auto">
+            <h3 className="text-lg font-semibold text-[var(--text-strong)]">
               Recuperar senha
             </h3>
-            <p className="mt-2 text-sm text-[#5f574a]">
+            <p className="mt-2 text-sm text-[var(--text-muted)]">
               Deseja enviar um link de recuperação de senha para o e-mail da
               conta?
             </p>
-            <div className="mt-4 rounded-md border border-[#efe2d1] bg-[#fdf8f1] px-4 py-3 text-sm text-[#4b4337]">
+            <div className="mt-4 rounded-md border border-[var(--border-soft)] bg-[var(--surface-subtle)] px-4 py-3 text-sm text-[var(--text-medium)]">
               E-mail: {userEmail}
             </div>
             <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-end">
               <button
-                className="rounded-md bg-[#1f5b4b] px-4 py-2 text-sm font-semibold min-h-[44px] text-[#fffaf2]"
-                onClick={() => setShowForgotModal(false)}
+                className="rounded-md bg-[var(--accent-bg)] px-4 py-2 text-sm font-semibold min-h-[44px] text-[var(--text-on-accent)]"
+                onClick={handleForgotPassword}
+                disabled={forgotStatus === "loading"}
               >
-                Enviar link
+                {forgotStatus === "loading" ? "Enviando..." : "Enviar link"}
               </button>
               <button
-                className="rounded-md border border-[#e1e1e1] bg-[#f3f3f3] px-4 py-2 text-sm font-semibold min-h-[44px] h-11 text-[#6b6357]"
-                onClick={() => setShowForgotModal(false)}
+                className="rounded-md border border-[var(--border-neutral)] bg-[var(--surface-neutral)] px-4 py-2 text-sm font-semibold min-h-[44px] h-11 text-[var(--text-muted)]"
+                onClick={() => {
+                  setShowForgotModal(false);
+                  setForgotStatus("idle");
+                  setForgotMessage("");
+                }}
+                disabled={forgotStatus === "loading"}
               >
                 Cancelar
               </button>
             </div>
+            {forgotStatus === "error" ? (
+              <div className="mt-3 rounded-md border border-[var(--border-warm)] bg-[var(--surface-warm)] px-4 py-3 text-xs text-[var(--accent-warm)]">
+                {forgotMessage}
+              </div>
+            ) : null}
           </div>
         </div>
       ) : null}

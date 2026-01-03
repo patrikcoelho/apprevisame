@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
+import { Clock, Pause, Play, Square } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import {
   clearReviewTimerSession,
@@ -26,19 +27,16 @@ export default function ReviewTimerBar() {
   const router = useRouter();
   const pathname = usePathname();
   const [session, setSession] = useState<ReviewTimerSession | null>(null);
-  const [tick, setTick] = useState(0);
+  const [, setTick] = useState(0);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
-
-  useEffect(() => {
-    setSession(readReviewTimerSession());
-    if (typeof window !== "undefined") {
-      setIsModalOpen(window.localStorage.getItem(MODAL_KEY) === "true");
-    }
-  }, []);
+  const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+    setSession(readReviewTimerSession());
+    setIsModalOpen(window.localStorage.getItem(MODAL_KEY) === "true");
+    setIsMounted(true);
     const media = window.matchMedia("(min-width: 1024px)");
     const handleChange = () => setIsDesktop(media.matches);
     handleChange();
@@ -79,10 +77,7 @@ export default function ReviewTimerBar() {
     return () => window.clearInterval(interval);
   }, [session]);
 
-  const elapsedSeconds = useMemo(() => {
-    if (!session) return 0;
-    return computeElapsedSeconds(session);
-  }, [session, tick]);
+  const elapsedSeconds = session ? computeElapsedSeconds(session) : 0;
 
   const updateSession = (next: ReviewTimerSession | null) => {
     if (next) {
@@ -150,32 +145,27 @@ export default function ReviewTimerBar() {
     );
   }, [isDesktop, isModalOpen, session]);
 
-  if (!session || isModalOpen) return null;
+  if (!isMounted || !session || isModalOpen) return null;
 
   return (
     <>
       <div
-        className="fixed left-0 right-0 z-40 border-t border-[#17352e] bg-[#214139]/90 px-4 py-3 text-white shadow-[0_-14px_40px_-22px_rgba(31,91,75,0.8)] backdrop-blur lg:border-b-0 lg:py-2"
-        style={{ top: "auto", bottom: isDesktop ? "0px" : "68px" }}
+        className="fixed left-0 right-0 z-50 min-h-[56px] border-t border-[var(--accent-border-strong)] bg-[var(--accent-bar-bg)] px-4 py-2 text-[var(--text-white)] shadow-[var(--shadow-accent-glow)] backdrop-blur lg:border-b-0"
+        style={{
+          top: "auto",
+          bottom: isDesktop
+            ? "0px"
+            : "calc(68px + env(safe-area-inset-bottom))",
+        }}
       >
         <div className="relative flex items-center justify-between gap-3">
           <div className="flex items-center">
-            <span className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-white/30 bg-white/10 text-white">
-              <svg
-                aria-hidden="true"
-                className="h-4 w-4"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.8"
-              >
-                <circle cx="12" cy="12" r="9" />
-                <path d="M12 7v5l3 2" strokeLinecap="round" />
-              </svg>
+            <span className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-[var(--border-on-accent)] bg-[var(--surface-white-10)] text-[var(--text-white)]">
+              <Clock className="h-4 w-4" aria-hidden="true" />
             </span>
           </div>
           {session.isPaused ? (
-            <span className="absolute left-12 top-1/2 -translate-y-1/2 rounded-full border border-white/30 bg-white/10 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-white/90">
+            <span className="absolute left-12 top-1/2 -translate-y-1/2 rounded-full border border-[var(--border-on-accent)] bg-[var(--surface-white-10)] px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-[var(--text-white-90)]">
               Pausado
             </span>
           ) : null}
@@ -185,52 +175,25 @@ export default function ReviewTimerBar() {
           <div className="flex flex-nowrap items-center justify-end gap-2">
             <button
               type="button"
-              className="flex h-9 w-9 items-center justify-center rounded-full border border-white/30 bg-white/10 text-white"
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border-on-accent)] bg-[var(--surface-white-10)] text-[var(--text-white)]"
               aria-label={
                 session.isPaused ? "Continuar revisão" : "Pausar revisão"
               }
               onClick={togglePause}
             >
               {session.isPaused ? (
-                <svg
-                  aria-hidden="true"
-                  className="h-4 w-4"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                >
-                  <path d="M8 5v14l11-7z" strokeLinecap="round" />
-                </svg>
+                <Play className="h-4 w-4" aria-hidden="true" />
               ) : (
-                <svg
-                  aria-hidden="true"
-                  className="h-4 w-4"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                >
-                  <path d="M8 6v12M16 6v12" strokeLinecap="round" />
-                </svg>
+                <Pause className="h-4 w-4" aria-hidden="true" />
               )}
             </button>
             <button
               type="button"
-              className="flex h-9 w-9 items-center justify-center rounded-full border border-white/30 bg-[#d9772b] text-white"
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border-on-accent)] bg-[var(--accent-warm-bg)] text-[var(--text-white)]"
               aria-label="Encerrar revisão"
               onClick={requestFinishFlow}
             >
-              <svg
-                aria-hidden="true"
-                className="h-4 w-4"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-              >
-                <rect x="6" y="6" width="12" height="12" rx="2" />
-              </svg>
+              <Square className="h-4 w-4" aria-hidden="true" />
             </button>
           </div>
         </div>

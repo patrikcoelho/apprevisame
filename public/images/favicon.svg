@@ -1,11 +1,11 @@
 <svg width="93" height="102" viewBox="0 0 93 102" fill="none" xmlns="http://www.w3.org/2000/svg">
-<rect y="9" width="93" height="93" rx="18" fill="#2C846D"/>
-<path d="M0 27C0 17.0589 8.05887 9 18 9H75C84.9411 9 93 17.0589 93 27V35H0V27Z" fill="url(#paint0_linear_2_3)"/>
+<rect x="0.5" y="9.5" width="92" height="92" rx="17.5" fill="#0D6EFD" stroke="white"/>
+<path d="M18 9.5H75C84.665 9.5 92.5 17.335 92.5 27V34.5H0.5V27C0.5 17.4862 8.09184 9.74568 17.5479 9.50586L18 9.5Z" fill="url(#paint0_linear_2_3)" stroke="white"/>
 <g filter="url(#filter0_d_2_3)">
-<rect x="19" y="2" width="11" height="22" rx="5.5" fill="#2C846D"/>
-<rect x="63" y="2" width="11" height="22" rx="5.5" fill="#2C846D"/>
+<rect x="19" y="2" width="11" height="22" rx="5.5" fill="#0D6EFD"/>
+<rect x="63" y="2" width="11" height="22" rx="5.5" fill="#0D6EFD"/>
 </g>
-<path d="M31 66L44.5 79L68 57" stroke="#E8FFF6" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M31 66L44.5 79L68 57" stroke="#E8F8FF" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
 <defs>
 <filter id="filter0_d_2_3" x="16" y="0" width="63" height="30" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
 <feFlood flood-opacity="0" result="BackgroundImageFix"/>
@@ -18,7 +18,7 @@
 <feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow_2_3" result="shape"/>
 </filter>
 <linearGradient id="paint0_linear_2_3" x1="-4.26152e-07" y1="13" x2="105.5" y2="35" gradientUnits="userSpaceOnUse">
-<stop stop-color="#E8FFF6"/>
+<stop stop-color="#E8F6FF"/>
 <stop offset="1" stop-color="white"/>
 </linearGradient>
 </defs>

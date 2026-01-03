@@ -1,71 +1,86 @@
+import Image from "next/image";
+import Link from "next/link";
+import logoRevisame from "@/public/images/logo-revisame.svg";
+import logoRevisameDark from "@/public/images/logo-revisame-dark.svg";
+import AuthThemeSync from "@/app/(auth)/auth-theme-sync";
+
 export default function AuthLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   return (
-    <div className="min-h-screen bg-[#f6f1ea] text-[#1d1b16]">
-      <div className="pointer-events-none fixed left-[-20rem] top-[-14rem] h-[28rem] w-[28rem] rounded-full bg-[radial-gradient(circle_at_center,rgba(217,91,67,0.25),rgba(246,241,234,0))] blur-3xl" />
-      <div className="pointer-events-none fixed right-[-18rem] top-24 h-[30rem] w-[30rem] rounded-full bg-[radial-gradient(circle_at_center,rgba(31,91,75,0.25),rgba(246,241,234,0))] blur-3xl" />
+    <div className="relative min-h-screen bg-[var(--background)] text-[var(--foreground)]">
+      <AuthThemeSync />
+      <div className="pointer-events-none absolute inset-0 hidden lg:block">
+        <div className="absolute inset-0 bg-[var(--background)]" />
+        <div
+          className="absolute inset-0 opacity-90"
+          style={{
+            backgroundImage:
+              "radial-gradient(circle at 16% 20%, var(--auth-bg-glow-1), transparent 45%), radial-gradient(circle at 82% 28%, var(--auth-bg-glow-2), transparent 42%), radial-gradient(circle at 78% 75%, var(--auth-bg-glow-3), transparent 40%)",
+          }}
+        />
+        <div
+          className="absolute inset-0 opacity-35"
+          style={{
+            backgroundImage:
+              "radial-gradient(var(--auth-bg-dot) 1px, transparent 1px)",
+            backgroundSize: "28px 28px",
+          }}
+        />
+      </div>
 
-      <div className="mx-auto flex min-h-screen max-w-5xl items-center px-4 py-8 md:px-6 md:py-10">
-        <div className="grid w-full gap-6 rounded-2xl border border-[#e6dbc9] bg-[#fffaf2] p-5 shadow-[0_18px_40px_-30px_rgba(31,91,75,0.5)] sm:p-6 md:grid-cols-[1.1fr_1fr] md:gap-8 md:p-8">
-          <div className="space-y-6">
-            <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-md bg-white">
-                <img
-                  src="/images/logo-revisame.png"
-                  alt="Revisame"
-                  className="h-10 w-10"
-                />
-              </div>
-              <div>
-                <p className="text-xs uppercase tracking-[0.35em] text-[#6b6357]">
-                  Revisame
-                </p>
-                <p className="text-lg font-semibold text-[#1f1c18]">
-                  Controle inteligente de estudos
-                </p>
-              </div>
-            </div>
-            <div>
-              <h1 className="text-2xl font-semibold text-[#1f1c18]">
-                Organize suas revisões com clareza.
-              </h1>
-              <p className="mt-2 text-sm text-[#5f574a]">
-                Acompanhe seus estudos diários, veja o que está atrasado e
-                mantenha o foco na rotina certa.
-              </p>
-            </div>
-            <div className="space-y-3 text-sm text-[#4b4337]">
-              {[
-                "Revisões espaçadas automáticas",
-                "Templates prontos para cada ritmo",
-                "Painel diário com alertas visuais",
-              ].map((item) => (
-                <div
-                  key={item}
-                  className="flex items-center gap-3 rounded-md border border-[#efe2d1] bg-[#fdf8f1] px-4 py-3"
-                >
-                  <span className="h-2 w-2 rounded-full bg-[#1f5b4b]" />
-                  {item}
-                </div>
-              ))}
-            </div>
-            <div className="rounded-md border border-[#d8eadf] bg-[#e9f4ef] p-4 text-sm text-[#2f5d4e]">
-              <p className="text-xs font-semibold uppercase text-[#2c5b4b]">
-                Destaque
-              </p>
-              <p className="mt-2 text-base font-semibold text-[#1f3f35]">
-                Planeje o semestre inteiro em minutos.
-              </p>
-            </div>
+      <header className="relative z-10 mx-auto flex w-full max-w-md items-center justify-between px-4 pt-3 lg:max-w-6xl lg:px-8 lg:pt-8">
+        <Link href="/" className="flex items-center gap-3">
+          <div className="flex h-11 w-11 items-center justify-center rounded-md">
+            <Image
+              src={logoRevisame}
+              alt="Revisame"
+              width={36}
+              height={36}
+              className="logo-variant--light h-9 w-9"
+            />
+            <Image
+              src={logoRevisameDark}
+              alt="Revisame"
+              width={36}
+              height={36}
+              className="logo-variant--dark h-9 w-9"
+            />
           </div>
-          <div className="rounded-xl border border-[#efe2d1] bg-white/70 p-5 sm:p-6">
+          <div>
+            <p className="text-[10px] uppercase tracking-[0.35em] text-[var(--text-muted)]">
+              Revisame
+            </p>
+            <p className="text-sm font-semibold text-[var(--text-strong)]">
+              Controle inteligente de estudos
+            </p>
+          </div>
+        </Link>
+        <div className="hidden items-center gap-3 text-sm font-semibold lg:flex">
+          <Link
+            href="/cadastro"
+            className="rounded-full border border-[var(--border)] px-4 py-2 text-[var(--text-strong)]"
+          >
+            Cadastrar
+          </Link>
+          <Link
+            href="/cadastro"
+            className="rounded-full bg-[var(--accent-bg)] px-4 py-2 text-[var(--text-on-accent)] shadow-[var(--shadow-accent-soft)]"
+          >
+            Seja Pro
+          </Link>
+        </div>
+      </header>
+
+      <main className="relative z-10 flex min-h-screen items-start justify-center px-4 pb-6 pt-8 lg:items-center lg:px-10 lg:py-16">
+        <div className="w-full max-w-md lg:max-w-lg">
+          <div className="rounded-2xl border-0 bg-transparent p-6 shadow-none lg:border lg:border-[var(--border)] lg:bg-[var(--surface)] lg:p-8 lg:shadow-[var(--shadow-accent-wide)]">
             {children}
           </div>
         </div>
-      </div>
+      </main>
     </div>
   );
 }

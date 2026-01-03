@@ -5,39 +5,29 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/app/components/toast-provider";
 
-export default function RecuperarSenhaPage() {
+export default function SolicitarRecuperacaoPage() {
   const router = useRouter();
   const supabase = createClient();
   const { addToast } = useToast();
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
+  const [email, setEmail] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
   const [message, setMessage] = useState("");
 
-  const handleUpdatePassword = async (event: React.FormEvent<HTMLFormElement>) => {
+  const handleRequest = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setStatus("loading");
     setMessage("");
 
-    if (password !== confirmPassword) {
-      setStatus("error");
-      setMessage("As senhas não coincidem.");
-      addToast({
-        variant: "error",
-        title: "As senhas não coincidem.",
-        description: "Verifique e tente novamente.",
-      });
-      return;
-    }
-
-    setStatus("loading");
-    const { error } = await supabase.auth.updateUser({ password });
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/recuperar-senha/nova`,
+    });
 
     if (error) {
       setStatus("error");
-      setMessage("Não foi possível atualizar sua senha.");
+      setMessage("Não foi possível enviar o link de recuperação.");
       addToast({
         variant: "error",
-        title: "Não foi possível atualizar sua senha.",
+        title: "Não foi possível enviar o link.",
         description: "Tente novamente em instantes.",
       });
       return;
@@ -46,64 +36,52 @@ export default function RecuperarSenhaPage() {
     setStatus("idle");
     addToast({
       variant: "success",
-      title: "Senha atualizada.",
-      description: "Faça login com sua nova senha.",
+      title: "Link enviado.",
+      description: "Verifique seu e-mail para continuar.",
     });
-    router.push("/login");
-    router.refresh();
+    router.push(`/recuperar-senha/enviado?email=${encodeURIComponent(email)}`);
   };
 
   return (
     <div className="space-y-6">
       <div>
-        <p className="text-xs font-semibold uppercase tracking-[0.35em] text-[#6b6357]">
+        <p className="text-xs font-semibold uppercase tracking-[0.35em] text-[var(--text-muted)]">
           Recuperar senha
         </p>
-        <h2 className="mt-2 text-2xl font-semibold text-[#1f1c18]">
-          Defina uma nova senha.
+        <h2 className="mt-2 text-2xl font-semibold text-[var(--text-strong)]">
+          Redefina sua senha.
         </h2>
-        <p className="mt-2 text-sm text-[#5f574a]">
-          Escolha uma senha segura para continuar seus estudos.
+        <p className="mt-2 text-sm text-[var(--text-muted)]">
+          Informe o e-mail associado à sua conta para receber as instruções.
         </p>
       </div>
 
-      <form className="space-y-4" onSubmit={handleUpdatePassword}>
+      <form className="space-y-4" onSubmit={handleRequest}>
         <div>
-          <label className="text-xs font-semibold text-[#6b6357]">
-            Nova senha
+          <label className="text-xs font-semibold text-[var(--text-muted)]">
+            E-mail
           </label>
           <input
-            type="password"
-            placeholder="Digite a nova senha"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-base text-[#1f1c18]"
-          />
-        </div>
-        <div>
-          <label className="text-xs font-semibold text-[#6b6357]">
-            Confirmar senha
-          </label>
-          <input
-            type="password"
-            placeholder="Repita a nova senha"
-            value={confirmPassword}
-            onChange={(event) => setConfirmPassword(event.target.value)}
-            className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-base text-[#1f1c18]"
+            type="email"
+            placeholder="voce@email.com"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            className="mt-2 h-11 w-full rounded-md border border-[var(--border-soft)] bg-[var(--surface-white)] px-3 text-base text-[var(--text-strong)]"
+            required
           />
         </div>
 
         <button
           type="submit"
-          className="min-h-[48px] w-full rounded-md bg-[#1f5b4b] px-4 py-3 text-base font-semibold text-[#fffaf2] shadow-[0_12px_30px_-20px_rgba(31,91,75,0.6)] disabled:cursor-not-allowed disabled:bg-[#9fbfb5]"
-          disabled={status === "loading" || !password || !confirmPassword}
+          className="min-h-[48px] w-full rounded-md bg-[var(--accent-bg)] px-4 py-3 text-base font-semibold text-[var(--text-on-accent)] shadow-[var(--shadow-accent)] disabled:cursor-not-allowed disabled:bg-[var(--accent-disabled)]"
+          disabled={status === "loading" || !email}
         >
-          {status === "loading" ? "Salvando..." : "Salvar nova senha"}
+          {status === "loading" ? "Enviando..." : "Enviar instruções"}
         </button>
       </form>
 
       {status === "error" ? (
-        <div className="rounded-md border border-[#f0c6b9] bg-[#fbe7df] px-4 py-3 text-xs text-[#9d4b3b]">
+        <div className="rounded-md border border-[var(--border-warm)] bg-[var(--surface-warm)] px-4 py-3 text-xs text-[var(--accent-warm)]">
           {message}
         </div>
       ) : null}

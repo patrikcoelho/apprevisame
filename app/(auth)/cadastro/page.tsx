@@ -84,50 +84,50 @@ export default function CadastroPage() {
   return (
     <div className="space-y-6">
       <div>
-        <p className="text-xs font-semibold uppercase tracking-[0.35em] text-[#6b6357]">
+        <p className="text-xs font-semibold uppercase tracking-[0.35em] text-[var(--text-muted)]">
           Cadastro
         </p>
-        <h2 className="mt-2 text-2xl font-semibold text-[#1f1c18]">
+        <h2 className="mt-2 text-2xl font-semibold text-[var(--text-strong)]">
           Crie sua conta.
         </h2>
-        <p className="mt-2 text-sm text-[#5f574a]">
+        <p className="mt-2 text-sm text-[var(--text-muted)]">
           Comece registrando seu perfil para liberar o onboarding.
         </p>
       </div>
 
       <form className="space-y-4" onSubmit={handleSignUp}>
         <div>
-          <label className="text-xs font-semibold text-[#6b6357]">Nome</label>
+          <label className="text-xs font-semibold text-[var(--text-muted)]">Nome</label>
           <input
             type="text"
             placeholder="Seu nome completo"
             value={fullName}
             onChange={(event) => setFullName(event.target.value)}
-            className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-base text-[#1f1c18]"
+            className="mt-2 h-11 w-full rounded-md border border-[var(--border-soft)] bg-[var(--surface-white)] px-3 text-base text-[var(--text-strong)]"
           />
         </div>
         <div>
-          <label className="text-xs font-semibold text-[#6b6357]">E-mail</label>
+          <label className="text-xs font-semibold text-[var(--text-muted)]">E-mail</label>
           <input
             type="email"
             placeholder="voce@email.com"
             value={email}
             onChange={(event) => setEmail(event.target.value)}
-            className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-base text-[#1f1c18]"
+            className="mt-2 h-11 w-full rounded-md border border-[var(--border-soft)] bg-[var(--surface-white)] px-3 text-base text-[var(--text-strong)]"
           />
         </div>
         <div>
-          <label className="text-xs font-semibold text-[#6b6357]">Senha</label>
+          <label className="text-xs font-semibold text-[var(--text-muted)]">Senha</label>
           <input
             type="password"
             placeholder="Crie uma senha segura"
             value={password}
             onChange={(event) => setPassword(event.target.value)}
-            className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-base text-[#1f1c18]"
+            className="mt-2 h-11 w-full rounded-md border border-[var(--border-soft)] bg-[var(--surface-white)] px-3 text-base text-[var(--text-strong)]"
           />
         </div>
         <div>
-          <label className="text-xs font-semibold text-[#6b6357]">
+          <label className="text-xs font-semibold text-[var(--text-muted)]">
             Confirmar senha
           </label>
           <input
@@ -135,11 +135,11 @@ export default function CadastroPage() {
             placeholder="Repita a senha"
             value={confirmPassword}
             onChange={(event) => setConfirmPassword(event.target.value)}
-            className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-base text-[#1f1c18]"
+            className="mt-2 h-11 w-full rounded-md border border-[var(--border-soft)] bg-[var(--surface-white)] px-3 text-base text-[var(--text-strong)]"
           />
         </div>
         <button
-          className="min-h-[48px] w-full rounded-md bg-[#1f5b4b] px-4 py-3 text-base font-semibold text-[#fffaf2] shadow-[0_12px_30px_-20px_rgba(31,91,75,0.6)] disabled:cursor-not-allowed disabled:bg-[#9fbfb5]"
+          className="min-h-[48px] w-full rounded-md bg-[var(--accent-bg)] px-4 py-3 text-base font-semibold text-[var(--text-on-accent)] shadow-[var(--shadow-accent)] disabled:cursor-not-allowed disabled:bg-[var(--accent-disabled)]"
           type="submit"
           disabled={
             status === "loading" ||
@@ -154,25 +154,25 @@ export default function CadastroPage() {
       </form>
 
       {status === "error" ? (
-        <div className="rounded-md border border-[#f0c6b9] bg-[#fbe7df] px-4 py-3 text-xs text-[#9d4b3b]">
+        <div className="rounded-md border border-[var(--border-warm)] bg-[var(--surface-warm)] px-4 py-3 text-xs text-[var(--accent-warm)]">
           {message}
         </div>
       ) : null}
 
       {status === "success" && message ? (
-        <div className="rounded-md border border-[#d8eadf] bg-[#e9f4ef] px-4 py-3 text-xs text-[#2f5d4e]">
+        <div className="rounded-md border border-[var(--border-success-strong)] bg-[var(--surface-success)] px-4 py-3 text-xs text-[var(--accent)]">
           {message}
         </div>
       ) : null}
 
-      <div className="rounded-md border border-[#efe2d1] bg-[#fdf8f1] px-4 py-3 text-xs text-[#6b6357]">
+      <div className="rounded-md border border-[var(--border-soft)] bg-[var(--surface-subtle)] px-4 py-3 text-xs text-[var(--text-muted)]">
         Ao continuar, você concorda com os termos de uso e a política de
         privacidade.
       </div>
 
-      <div className="text-xs text-[#6b6357]">
+      <div className="text-xs text-[var(--text-muted)]">
         Já possui conta?{" "}
-        <Link href="/login" className="font-semibold text-[#1f5b4b]">
+        <Link href="/login" className="font-semibold text-[var(--accent)]">
           Entrar
         </Link>
       </div>

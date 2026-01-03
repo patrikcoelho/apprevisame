@@ -3,6 +3,7 @@ import { Fraunces, Manrope } from "next/font/google";
 import "./globals.css";
 import { ToastProvider } from "@/app/components/toast-provider";
 import ThemeProvider from "@/app/components/theme-provider";
+import RememberMeGuard from "@/app/components/remember-me-guard";
 
 const fraunces = Fraunces({
   variable: "--font-display",
@@ -19,14 +20,14 @@ export const metadata: Metadata = {
   description:
     "Controle de estudos e revisões espaçadas com onboarding, templates e painel diário.",
   icons: {
-    icon: "/images/favicon.svg",
+    icon: "/images/logo-revisame.svg",
   },
 };
 
 export const viewport: Viewport = {
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#f6f1ea" },
-    { media: "(prefers-color-scheme: dark)", color: "#0f1211" },
+    { media: "(prefers-color-scheme: dark)", color: "#0f1116" },
   ],
 };
 
@@ -39,6 +40,7 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${fraunces.variable} ${manrope.variable} antialiased`}>
         <ThemeProvider>
+          <RememberMeGuard />
           <ToastProvider>{children}</ToastProvider>
         </ThemeProvider>
       </body>

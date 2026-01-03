@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Check, ChevronDown, Filter, Smile, X } from "lucide-react";
 import {
   Area,
   CartesianGrid,
@@ -84,6 +85,24 @@ const getReviewTimestamp = (review: ReviewRow) =>
   review.completed_at ??
   review.due_at;
 
+type ChartTooltipProps = {
+  active?: boolean;
+  payload?: { payload: { range: string; value: number } }[];
+};
+
+const ChartTooltip = ({ active, payload }: ChartTooltipProps) => {
+  if (!active || !payload?.length) return null;
+  const item = payload[0].payload;
+  return (
+    <div className="rounded-md bg-[var(--chart-tooltip-bg)] px-3 py-2 text-[11px] font-semibold text-[var(--chart-tooltip-text)] shadow-[var(--shadow-accent-tooltip)]">
+      <div className="text-[10px] font-normal text-[var(--chart-tooltip-subtle)]">
+        {item.range}
+      </div>
+      {item.value} estudos
+    </div>
+  );
+};
+
 const normalizeStudyRow = (row: StudyRowRaw): StudyRow => ({
   ...row,
   subject: Array.isArray(row.subject) ? row.subject[0] ?? null : row.subject ?? null,
@@ -155,33 +174,24 @@ function MultiSelectDropdown({
 
   return (
     <div className="relative space-y-2" ref={wrapperRef}>
-      <label className="text-xs font-semibold uppercase text-[#6b6357]">
+      <label className="text-xs font-semibold uppercase text-[var(--text-muted)]">
         {label}
       </label>
       <button
         type="button"
-        className="flex h-10 w-full items-center justify-between rounded-md border border-[#e2d6c4] bg-white px-3 text-sm text-[#1f1c18]"
+        className="flex h-10 w-full items-center justify-between rounded-md border border-[var(--border)] bg-[var(--surface-white)] px-3 text-sm text-[var(--text-strong)]"
         onClick={() => setOpen((prev) => !prev)}
       >
-        <span className={selected.length ? "" : "text-[#6b6357]"}>
+        <span className={selected.length ? "" : "text-[var(--text-muted)]"}>
           {summary}
         </span>
-        <svg
-          aria-hidden="true"
-          className="h-4 w-4 text-[#6b6357]"
-          viewBox="0 0 20 20"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.8"
-        >
-          <path d="M5 8l5 5 5-5" strokeLinecap="round" />
-        </svg>
+        <ChevronDown className="h-4 w-4 text-[var(--text-muted)]" aria-hidden="true" />
       </button>
       {open ? (
-        <div className="absolute left-0 right-0 z-20 mt-1 w-full rounded-md border border-[#e2d6c4] bg-white shadow-[0_18px_40px_-26px_rgba(31,91,75,0.6)]">
+        <div className="absolute left-0 right-0 z-20 mt-1 w-full rounded-md border border-[var(--border)] bg-[var(--surface-white)] shadow-[var(--shadow-accent-pop)]">
           <div className="max-h-56 overflow-y-auto py-1">
             {options.length === 0 ? (
-              <div className="px-3 py-2 text-sm text-[#6b6357]">
+              <div className="px-3 py-2 text-sm text-[var(--text-muted)]">
                 Nenhuma opção disponível.
               </div>
             ) : (
@@ -191,27 +201,18 @@ function MultiSelectDropdown({
                   <button
                     key={option.value}
                     type="button"
-                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-[#1f1c18] hover:bg-[#f6efe4]"
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-[var(--text-strong)] hover:bg-[var(--surface-hover)]"
                     onClick={() => toggleValue(option.value)}
                   >
                     <span
                       className={`flex h-4 w-4 items-center justify-center rounded border ${
                         checked
-                          ? "border-[#1f5b4b] bg-[#1f5b4b]"
-                          : "border-[#e2d6c4] bg-white"
+                          ? "border-[var(--accent-border)] bg-[var(--accent-bg)]"
+                          : "border-[var(--border)] bg-[var(--surface-white)]"
                       }`}
                     >
                       {checked ? (
-                        <svg
-                          aria-hidden="true"
-                          className="h-3 w-3 text-white"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                        >
-                          <path d="M5 12l4 4L19 7" strokeLinecap="round" />
-                        </svg>
+                        <Check className="h-3 w-3 text-[var(--text-white)]" aria-hidden="true" />
                       ) : null}
                     </span>
                     <span>{option.label}</span>
@@ -288,42 +289,48 @@ export default function RelatoriosClient() {
   useEffect(() => {
     if (!userId) return;
     let active = true;
-    setLoading(true);
-
     const rangeStart = range.start.toISOString();
     const rangeEnd = range.end.toISOString();
 
-    Promise.all([
-      supabase
-        .from("studies")
-        .select(
-          "studied_at,questions_total,questions_correct,subject_id,subject:subjects(name)"
-        )
-        .eq("user_id", userId)
-        .gte("studied_at", rangeStart)
-        .lte("studied_at", rangeEnd)
-        .returns<StudyRowRaw[]>(),
-      supabase
-        .from("reviews")
-        .select(
-          "due_at,status,completed_at,review_started_at,review_duration_seconds,review_paused_seconds,study:studies(subject_id,subject:subjects(name))"
-        )
-        .eq("user_id", userId)
-        .gte("due_at", rangeStart)
-        .lte("due_at", rangeEnd)
-        .returns<ReviewRowRaw[]>(),
-    ])
-      .then(([studiesResult, reviewsResult]) => {
+    const fetchReports = async () => {
+      if (!active) return;
+      setLoading(true);
+      try {
+        const [studiesResult, reviewsResult] = await Promise.all([
+          supabase
+            .from("studies")
+            .select(
+              "studied_at,questions_total,questions_correct,subject_id,subject:subjects(name)"
+            )
+            .eq("user_id", userId)
+            .gte("studied_at", rangeStart)
+            .lte("studied_at", rangeEnd)
+            .returns<StudyRowRaw[]>(),
+          supabase
+            .from("reviews")
+            .select(
+              "due_at,status,completed_at,review_started_at,review_duration_seconds,review_paused_seconds,study:studies(subject_id,subject:subjects(name))"
+            )
+            .eq("user_id", userId)
+            .gte("due_at", rangeStart)
+            .lte("due_at", rangeEnd)
+            .returns<ReviewRowRaw[]>(),
+        ]);
         if (!active) return;
         setStudies(studiesResult.data?.map(normalizeStudyRow) ?? []);
         setReviews(reviewsResult.data?.map(normalizeReviewRow) ?? []);
-      })
-      .finally(() => {
+      } finally {
         if (!active) return;
         setLoading(false);
-      });
+      }
+    };
+
+    const timeoutId = window.setTimeout(() => {
+      void fetchReports();
+    }, 0);
     return () => {
       active = false;
+      window.clearTimeout(timeoutId);
     };
   }, [supabase, userId, range.start, range.end]);
 
@@ -502,25 +509,6 @@ export default function RelatoriosClient() {
       })),
     [weekSummaries]
   );
-  const ChartTooltip = ({
-    active,
-    payload,
-  }: {
-    active?: boolean;
-    payload?: { payload: { range: string; value: number } }[];
-  }) => {
-    if (!active || !payload?.length) return null;
-    const item = payload[0].payload;
-    return (
-      <div className="rounded-md bg-[var(--chart-tooltip-bg)] px-3 py-2 text-[11px] font-semibold text-[var(--chart-tooltip-text)] shadow-[0_12px_30px_-20px_rgba(31,91,75,0.4)]">
-        <div className="text-[10px] font-normal text-[var(--chart-tooltip-subtle)]">
-          {item.range}
-        </div>
-        {item.value} estudos
-      </div>
-    );
-  };
-
   const weeklyStudyGoal = 5;
   const weeklyMinutesGoal = 120;
   const startOfWeek = useMemo(() => {
@@ -547,12 +535,12 @@ export default function RelatoriosClient() {
   const FiltersContent = (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
       <div className="space-y-2">
-        <label className="text-xs font-semibold uppercase text-[#6b6357]">
+        <label className="text-xs font-semibold uppercase text-[var(--text-muted)]">
           Período
         </label>
         <div className="relative">
           <select
-            className="h-10 w-full appearance-none rounded-md border border-[#e2d6c4] bg-white px-3 pr-9 text-sm text-[#1f1c18]"
+            className="h-10 w-full appearance-none rounded-md border border-[var(--border)] bg-[var(--surface-white)] px-3 pr-9 text-sm text-[var(--text-strong)]"
             value={period}
             onChange={(event) =>
               setPeriod(event.target.value as typeof period)
@@ -563,29 +551,20 @@ export default function RelatoriosClient() {
             <option value="90">Últimos 90 dias</option>
             <option value="custom">Personalizado</option>
           </select>
-          <svg
-            aria-hidden="true"
-            className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6b6357]"
-            viewBox="0 0 20 20"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.8"
-          >
-            <path d="M5 8l5 5 5-5" strokeLinecap="round" />
-          </svg>
+          <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-muted)]" aria-hidden="true" />
         </div>
         {period === "custom" ? (
           <div className="grid grid-cols-2 gap-2">
             <input
               type="date"
-              className="h-10 w-full rounded-md border border-[#e2d6c4] bg-white px-3 text-xs text-[#1f1c18]"
+              className="h-10 w-full rounded-md border border-[var(--border)] bg-[var(--surface-white)] px-3 text-xs text-[var(--text-strong)]"
               value={customStart}
               max={todayIso}
               onChange={(event) => setCustomStart(event.target.value)}
             />
             <input
               type="date"
-              className="h-10 w-full rounded-md border border-[#e2d6c4] bg-white px-3 text-xs text-[#1f1c18]"
+              className="h-10 w-full rounded-md border border-[var(--border)] bg-[var(--surface-white)] px-3 text-xs text-[var(--text-strong)]"
               value={customEnd}
               max={todayIso}
               onChange={(event) => setCustomEnd(event.target.value)}
@@ -619,12 +598,12 @@ export default function RelatoriosClient() {
       />
 
       <div className="space-y-2">
-        <label className="text-xs font-semibold uppercase text-[#6b6357]">
+        <label className="text-xs font-semibold uppercase text-[var(--text-muted)]">
           Questões
         </label>
         <div className="relative">
           <select
-            className="h-10 w-full appearance-none rounded-md border border-[#e2d6c4] bg-white px-3 pr-9 text-sm text-[#1f1c18]"
+            className="h-10 w-full appearance-none rounded-md border border-[var(--border)] bg-[var(--surface-white)] px-3 pr-9 text-sm text-[var(--text-strong)]"
             value={questionFilter}
             onChange={(event) => setQuestionFilter(event.target.value)}
           >
@@ -632,26 +611,17 @@ export default function RelatoriosClient() {
             <option value="with">Com questões</option>
             <option value="without">Sem questões</option>
           </select>
-          <svg
-            aria-hidden="true"
-            className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6b6357]"
-            viewBox="0 0 20 20"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.8"
-          >
-            <path d="M5 8l5 5 5-5" strokeLinecap="round" />
-          </svg>
+          <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-muted)]" aria-hidden="true" />
         </div>
       </div>
 
       <div className="space-y-2">
-        <label className="text-xs font-semibold uppercase text-[#6b6357]">
+        <label className="text-xs font-semibold uppercase text-[var(--text-muted)]">
           Tempo mínimo
         </label>
         <div className="relative">
           <select
-            className="h-10 w-full appearance-none rounded-md border border-[#e2d6c4] bg-white px-3 pr-9 text-sm text-[#1f1c18]"
+            className="h-10 w-full appearance-none rounded-md border border-[var(--border)] bg-[var(--surface-white)] px-3 pr-9 text-sm text-[var(--text-strong)]"
             value={minDuration}
             onChange={(event) => setMinDuration(event.target.value)}
           >
@@ -662,16 +632,7 @@ export default function RelatoriosClient() {
             <option value="30">30 min</option>
             <option value="60">1h+</option>
           </select>
-          <svg
-            aria-hidden="true"
-            className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6b6357]"
-            viewBox="0 0 20 20"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.8"
-          >
-            <path d="M5 8l5 5 5-5" strokeLinecap="round" />
-          </svg>
+          <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-muted)]" aria-hidden="true" />
         </div>
       </div>
 
@@ -692,12 +653,12 @@ export default function RelatoriosClient() {
       />
 
       <div className="space-y-2">
-        <label className="text-xs font-semibold uppercase text-[#6b6357]">
+        <label className="text-xs font-semibold uppercase text-[var(--text-muted)]">
           Turno
         </label>
         <div className="relative">
           <select
-            className="h-10 w-full appearance-none rounded-md border border-[#e2d6c4] bg-white px-3 pr-9 text-sm text-[#1f1c18]"
+            className="h-10 w-full appearance-none rounded-md border border-[var(--border)] bg-[var(--surface-white)] px-3 pr-9 text-sm text-[var(--text-strong)]"
             value={turnFilter}
             onChange={(event) => setTurnFilter(event.target.value)}
           >
@@ -707,54 +668,36 @@ export default function RelatoriosClient() {
             <option value="evening">Noite</option>
             <option value="night">Madrugada</option>
           </select>
-          <svg
-            aria-hidden="true"
-            className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6b6357]"
-            viewBox="0 0 20 20"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.8"
-          >
-            <path d="M5 8l5 5 5-5" strokeLinecap="round" />
-          </svg>
+          <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-muted)]" aria-hidden="true" />
         </div>
       </div>
     </div>
   );
 
   return (
-    <div className="space-y-6">
+    <div className="page-stack">
       <header className="flex flex-col gap-3">
         <div className="flex items-center justify-between gap-4">
           <div className="space-y-1">
-            <h1 className="text-2xl font-semibold text-[#1f1c18]">
+            <h1 className="text-2xl font-semibold text-[var(--text-strong)]">
               Relatórios
             </h1>
-            <p className="text-sm text-[#5f574a]">
+            <p className="text-sm text-[var(--text-muted)]">
               Resumo automático do período selecionado.
             </p>
           </div>
           <button
             type="button"
-            className="flex h-10 w-11 items-center justify-center rounded-md border border-[#e2d6c4] bg-white text-[#1f5b4b] lg:hidden"
+            className="flex h-10 w-11 items-center justify-center rounded-md border border-[var(--border)] bg-[var(--surface-white)] text-[var(--accent)] lg:hidden"
             onClick={() => setShowFilters(true)}
             aria-label="Abrir filtros"
           >
-            <svg
-              aria-hidden="true"
-              className="h-5 w-5"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.8"
-            >
-              <path d="M3 5h18l-7 8v4l-4 2v-6L3 5z" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
+            <Filter className="h-5 w-5" aria-hidden="true" />
           </button>
         </div>
       </header>
 
-      <section className="hidden rounded-lg border border-[#e6dbc9] bg-[#fffaf2] p-4 lg:block">
+      <section className="hidden rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4 lg:block">
         {FiltersContent}
       </section>
 
@@ -771,37 +714,28 @@ export default function RelatoriosClient() {
           aria-hidden="true"
         />
         <aside
-          className={`absolute right-0 top-0 flex h-full w-[78%] max-w-xs flex-col border-l border-[#e6dbc9] bg-[#fffaf2] modal-shadow transition-transform ${
+          className={`absolute right-0 top-0 flex h-full w-[78%] max-w-xs flex-col border-l border-[var(--border)] bg-[var(--surface)] modal-shadow transition-transform ${
             showFilters ? "translate-x-0" : "translate-x-full"
           }`}
         >
-          <div className="flex items-center justify-between border-b border-[#efe2d1] px-5 py-4">
-            <h2 className="text-lg font-semibold text-[#1f1c18]">Filtros</h2>
+          <div className="flex items-center justify-between border-b border-[var(--border-soft)] px-5 py-4">
+            <h2 className="text-lg font-semibold text-[var(--text-strong)]">Filtros</h2>
             <button
               type="button"
-              className="flex h-10 w-10 items-center justify-center rounded-full border border-[#e2d6c4] bg-white text-[#6b6357]"
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface-white)] text-[var(--text-muted)]"
               aria-label="Fechar filtros"
               onClick={() => setShowFilters(false)}
             >
-              <svg
-                aria-hidden="true"
-                className="h-4 w-4"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-              >
-                <path d="M6 6l12 12M18 6l-12 12" strokeLinecap="round" />
-              </svg>
+              <X className="h-4 w-4" aria-hidden="true" />
             </button>
           </div>
           <div className="flex-1 overflow-y-auto px-5 py-4">
             {FiltersContent}
           </div>
-          <div className="border-t border-[#efe2d1] bg-[#fffaf2] px-5 py-4">
+          <div className="border-t border-[var(--border-soft)] bg-[var(--surface)] px-5 py-4">
             <button
               type="button"
-              className="min-h-[44px] w-full rounded-md border border-[#1f5b4b] bg-[#1f5b4b] px-4 py-2 text-sm font-semibold text-white"
+              className="min-h-[44px] w-full rounded-md border border-[var(--accent-border)] bg-[var(--accent-bg)] px-4 py-2 text-sm font-semibold text-[var(--text-white)]"
               onClick={() => setShowFilters(false)}
             >
               Aplicar filtros
@@ -811,36 +745,21 @@ export default function RelatoriosClient() {
       </div>
 
       {loading ? (
-        <section className="rounded-lg border border-[#e6dbc9] bg-[#fffaf2] p-4 text-sm text-[#6b6357]">
+        <section className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4 text-sm text-[var(--text-muted)]">
           Carregando relatórios...
         </section>
       ) : !hasAnyData ? (
-        <section className="rounded-lg border border-[#e6dbc9] bg-[#fffaf2] p-4 sm:p-6">
-          <div className="flex flex-col gap-3 rounded-md border border-[#efe2d1] bg-[#fbf7f2] px-4 py-4 text-sm text-[#6b6357]">
+        <section className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4 sm:p-6">
+          <div className="flex flex-col gap-3 rounded-md border border-[var(--border-soft)] bg-[var(--surface-soft)] px-4 py-4 text-sm text-[var(--text-muted)]">
             <div className="flex items-center gap-3">
-              <span className="flex h-9 w-9 items-center justify-center rounded-full border border-[#e2d6c4] bg-white text-[#4b4337]">
-                <svg
-                  aria-hidden="true"
-                  className="h-4 w-4"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                >
-                  <circle cx="12" cy="12" r="9" />
-                  <path d="M9 10h.01M15 10h.01" strokeLinecap="round" />
-                  <path
-                    d="M16 16c-1-1-3-1-4-1s-3 0-4 1"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
+              <span className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface-white)] text-[var(--text-medium)]">
+                <Smile className="h-4 w-4" aria-hidden="true" />
               </span>
               <div>
-                <p className="font-semibold text-[#4b4337]">
+                <p className="font-semibold text-[var(--text-medium)]">
                   Nenhum dado encontrado.
                 </p>
-                <p className="text-xs text-[#6b6357]">
+                <p className="text-xs text-[var(--text-muted)]">
                   Ajuste os filtros ou registre novos estudos.
                 </p>
               </div>
@@ -874,72 +793,72 @@ export default function RelatoriosClient() {
             ].map((item) => (
               <div
                 key={item.label}
-                className="rounded-lg border border-[#e6dbc9] bg-[#fffaf2] p-4"
+                className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4"
               >
-                <p className="text-xs font-semibold uppercase text-[#6b6357]">
+                <p className="text-xs font-semibold uppercase text-[var(--text-muted)]">
                   {item.label}
                 </p>
-                <p className="mt-2 text-2xl font-semibold text-[#1f1c18]">
+                <p className="mt-2 text-2xl font-semibold text-[var(--text-strong)]">
                   {item.value}
                 </p>
-                <p className="mt-1 text-xs text-[#6b6357]">{item.caption}</p>
+                <p className="mt-1 text-xs text-[var(--text-muted)]">{item.caption}</p>
               </div>
             ))}
           </section>
 
           <section className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
-            <div className="rounded-lg border border-[#e6dbc9] bg-[#fffaf2] p-4 sm:p-6">
-              <h2 className="text-lg font-semibold text-[#1f1c18]">
+            <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4 sm:p-6">
+              <h2 className="text-lg font-semibold text-[var(--text-strong)]">
                 Desempenho em questões
               </h2>
-              <div className="mt-4 space-y-3 text-sm text-[#4b4337]">
+              <div className="mt-4 space-y-3 text-sm text-[var(--text-medium)]">
                 <div className="flex items-center justify-between">
                   <span>Questões resolvidas</span>
-                  <span className="font-semibold text-[#1f5b4b]">
+                  <span className="font-semibold text-[var(--accent)]">
                     {totalQuestions}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span>Questões corretas</span>
-                  <span className="font-semibold text-[#1f5b4b]">
+                  <span className="font-semibold text-[var(--accent)]">
                     {totalCorrect}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span>Taxa de acertos</span>
-                  <span className="font-semibold text-[#1f5b4b]">
+                  <span className="font-semibold text-[var(--accent)]">
                     {accuracy}%
                   </span>
                 </div>
               </div>
-              <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-[#efe2d1]">
+              <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-[var(--surface-divider)]">
                 <div
-                  className="h-full rounded-full bg-[#1f5b4b]"
+                  className="h-full rounded-full bg-[var(--accent-bg)]"
                   style={{ width: `${accuracy}%` }}
                 />
               </div>
             </div>
 
-            <div className="rounded-lg border border-[#e6dbc9] bg-[#fffaf2] p-4 sm:p-6">
-              <h2 className="text-lg font-semibold text-[#1f1c18]">
+            <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4 sm:p-6">
+              <h2 className="text-lg font-semibold text-[var(--text-strong)]">
                 Consistência
               </h2>
-              <div className="mt-4 space-y-3 text-sm text-[#4b4337]">
+              <div className="mt-4 space-y-3 text-sm text-[var(--text-medium)]">
                 <div className="flex items-center justify-between">
                   <span>Dias estudados</span>
-                  <span className="font-semibold text-[#1f5b4b]">
+                  <span className="font-semibold text-[var(--accent)]">
                     {activeDays.size}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span>Sequência atual</span>
-                  <span className="font-semibold text-[#1f5b4b]">
+                  <span className="font-semibold text-[var(--accent)]">
                     {streak} dias
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span>Revisões concluídas</span>
-                  <span className="font-semibold text-[#1f5b4b]">
+                  <span className="font-semibold text-[var(--accent)]">
                     {completedReviews.length}
                   </span>
                 </div>
@@ -948,11 +867,11 @@ export default function RelatoriosClient() {
           </section>
 
           <section className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
-            <div className="rounded-lg border border-[#e6dbc9] bg-[#fffaf2] p-4 sm:p-6">
-              <h2 className="text-lg font-semibold text-[#1f1c18]">
+            <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4 sm:p-6">
+              <h2 className="text-lg font-semibold text-[var(--text-strong)]">
                 Linha do tempo
               </h2>
-              <p className="mt-1 text-xs text-[#6b6357]">
+              <p className="mt-1 text-xs text-[var(--text-muted)]">
                 Distribuição de estudos nas últimas 4 semanas.
               </p>
               <div className="mt-4 h-32 w-full">
@@ -1005,17 +924,17 @@ export default function RelatoriosClient() {
               <div className="mt-4 space-y-3">
                 {weekSummaries.map((week) => (
                   <div key={week.label} className="space-y-2">
-                    <div className="flex items-center justify-between text-xs text-[#6b6357]">
+                    <div className="flex items-center justify-between text-xs text-[var(--text-muted)]">
                       <span>{week.label}</span>
-                      <span className="font-semibold text-[#1f5b4b]">
+                      <span className="font-semibold text-[var(--accent)]">
                         {week.count === 1
                           ? "1 estudo realizado"
                           : `${week.count} estudos realizados`}
                       </span>
                     </div>
-                    <div className="h-2 w-full overflow-hidden rounded-full bg-[#efe2d1]">
+                    <div className="h-2 w-full overflow-hidden rounded-full bg-[var(--surface-divider)]">
                       <div
-                        className="h-full rounded-full bg-[#1f5b4b]"
+                        className="h-full rounded-full bg-[var(--accent-bg)]"
                         style={{ width: `${(week.count / maxWeekCount) * 100}%` }}
                       />
                     </div>
@@ -1024,11 +943,11 @@ export default function RelatoriosClient() {
               </div>
             </div>
 
-            <div className="rounded-lg border border-[#e6dbc9] bg-[#fffaf2] p-4 sm:p-6">
-              <h2 className="text-lg font-semibold text-[#1f1c18]">
+            <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4 sm:p-6">
+              <h2 className="text-lg font-semibold text-[var(--text-strong)]">
                 Matérias mais estudadas
               </h2>
-              <p className="mt-1 text-xs text-[#6b6357]">
+              <p className="mt-1 text-xs text-[var(--text-muted)]">
                 Ranking por quantidade de estudos no período.
               </p>
               <div className="mt-4 space-y-3">
@@ -1036,12 +955,12 @@ export default function RelatoriosClient() {
                   visibleSubjects.map(([name, count]) => (
                     <div
                       key={name}
-                      className="flex items-center justify-between rounded-md border border-[#efe2d1] bg-[#fdf8f1] px-3 py-3 text-sm text-[#4b4337]"
+                      className="flex items-center justify-between rounded-md border border-[var(--border-soft)] bg-[var(--surface-subtle)] px-3 py-3 text-sm text-[var(--text-medium)]"
                     >
-                      <span className="font-semibold text-[#1f1c18]">
+                      <span className="font-semibold text-[var(--text-strong)]">
                         {name}
                       </span>
-                      <span className="text-xs text-[#6b6357]">
+                      <span className="text-xs text-[var(--text-muted)]">
                         {count === 1
                           ? "1 estudo realizado"
                           : `${count} estudos realizados`}
@@ -1049,7 +968,7 @@ export default function RelatoriosClient() {
                     </div>
                   ))
                 ) : (
-                  <div className="rounded-md border border-[#efe2d1] bg-[#fdf8f1] px-4 py-4 text-sm text-[#6b6357]">
+                  <div className="rounded-md border border-[var(--border-soft)] bg-[var(--surface-subtle)] px-4 py-4 text-sm text-[var(--text-muted)]">
                     Registre estudos para ver o ranking por matéria.
                   </div>
                 )}
@@ -1057,7 +976,7 @@ export default function RelatoriosClient() {
               {sortedSubjects.length > 5 ? (
                 <button
                   type="button"
-                  className="mt-3 text-xs font-semibold text-[#1f5b4b] underline decoration-[#1f5b4b]/40 underline-offset-4"
+                  className="mt-3 text-xs font-semibold text-[var(--accent)] underline decoration-[var(--accent-decoration)] underline-offset-4"
                   onClick={() => setShowAllSubjects((prev) => !prev)}
                 >
                   {showAllSubjects
@@ -1069,26 +988,26 @@ export default function RelatoriosClient() {
           </section>
 
           <section className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
-            <div className="rounded-lg border border-[#e6dbc9] bg-[#fffaf2] p-4 sm:p-6">
-              <h2 className="text-lg font-semibold text-[#1f1c18]">
+            <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4 sm:p-6">
+              <h2 className="text-lg font-semibold text-[var(--text-strong)]">
                 Eficiência das revisões
               </h2>
-              <div className="mt-4 space-y-3 text-sm text-[#4b4337]">
+              <div className="mt-4 space-y-3 text-sm text-[var(--text-medium)]">
                 <div className="flex items-center justify-between">
                   <span>Taxa de conclusão</span>
-                  <span className="font-semibold text-[#1f5b4b]">
+                  <span className="font-semibold text-[var(--accent)]">
                     {completionRate}%
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span>Tempo médio por revisão</span>
-                  <span className="font-semibold text-[#1f5b4b]">
+                  <span className="font-semibold text-[var(--accent)]">
                     {formatDuration(avgReviewSeconds)}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span>Pausa média</span>
-                  <span className="font-semibold text-[#1f5b4b]">
+                  <span className="font-semibold text-[var(--accent)]">
                     {formatDuration(
                       completedReviews.length
                         ? Math.round(totalPausedSeconds / completedReviews.length)
@@ -1097,32 +1016,32 @@ export default function RelatoriosClient() {
                   </span>
                 </div>
               </div>
-              <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-[#efe2d1]">
+              <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-[var(--surface-divider)]">
                 <div
-                  className="h-full rounded-full bg-[#1f5b4b]"
+                  className="h-full rounded-full bg-[var(--accent-bg)]"
                   style={{ width: `${completionRate}%` }}
                 />
               </div>
             </div>
 
-            <div className="rounded-lg border border-[#e6dbc9] bg-[#fffaf2] p-4 sm:p-6">
-              <h2 className="text-lg font-semibold text-[#1f1c18]">
+            <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4 sm:p-6">
+              <h2 className="text-lg font-semibold text-[var(--text-strong)]">
                 Metas da semana
               </h2>
-              <p className="mt-1 text-xs text-[#6b6357]">
+              <p className="mt-1 text-xs text-[var(--text-muted)]">
                 Sugestão inicial para manter consistência.
               </p>
-              <div className="mt-4 space-y-4 text-sm text-[#4b4337]">
+              <div className="mt-4 space-y-4 text-sm text-[var(--text-medium)]">
                 <div>
                   <div className="flex items-center justify-between">
                     <span>Estudos</span>
-                    <span className="font-semibold text-[#1f5b4b]">
+                    <span className="font-semibold text-[var(--accent)]">
                       {studiesWeek.length}/{weeklyStudyGoal}
                     </span>
                   </div>
-                  <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-[#efe2d1]">
+                  <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-[var(--surface-divider)]">
                     <div
-                      className="h-full rounded-full bg-[#1f5b4b]"
+                      className="h-full rounded-full bg-[var(--accent-bg)]"
                       style={{
                         width: `${Math.min(
                           100,
@@ -1135,13 +1054,13 @@ export default function RelatoriosClient() {
                 <div>
                   <div className="flex items-center justify-between">
                     <span>Tempo de revisão</span>
-                    <span className="font-semibold text-[#1f5b4b]">
+                    <span className="font-semibold text-[var(--accent)]">
                       {weeklyMinutes}/{weeklyMinutesGoal} min
                     </span>
                   </div>
-                  <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-[#efe2d1]">
+                  <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-[var(--surface-divider)]">
                     <div
-                      className="h-full rounded-full bg-[#1f5b4b]"
+                      className="h-full rounded-full bg-[var(--accent-bg)]"
                       style={{
                         width: `${Math.min(
                           100,

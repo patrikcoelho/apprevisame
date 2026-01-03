@@ -10,8 +10,9 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { AlertTriangle, BellOff, Check, Info, X } from "lucide-react";
 
-type ToastVariant = "success" | "error" | "info";
+type ToastVariant = "neutral" | "info" | "success" | "warning" | "error";
 
 type ToastItem = {
   id: string;
@@ -28,18 +29,50 @@ type ToastContextValue = {
 
 const ToastContext = createContext<ToastContextValue | null>(null);
 
-const variantStyles: Record<ToastVariant, { container: string; badge: string }> = {
-  success: {
-    container: "border-[#cfe7dc] bg-[#edf7f1] text-[#1f5b4b]",
-    badge: "bg-[#1f5b4b] text-[#fffaf2]",
-  },
-  error: {
-    container: "border-[#f0c6b9] bg-[#fbe7df] text-[#9d4b3b]",
-    badge: "bg-[#d95b43] text-[#fffaf2]",
+const variantStyles: Record<
+  ToastVariant,
+  {
+    containerBg: string;
+    iconBg: string;
+    icon: string;
+    closeBg: string;
+    close: string;
+  }
+> = {
+  neutral: {
+    containerBg: "var(--toast-neutral-bg)",
+    iconBg: "var(--toast-neutral-icon-bg)",
+    icon: "text-[var(--toast-neutral-icon)]",
+    closeBg: "var(--toast-neutral-close-bg)",
+    close: "text-[var(--text-muted)]",
   },
   info: {
-    container: "border-[#e2d6c4] bg-[#fffaf2] text-[#4b4337]",
-    badge: "bg-[#6b6357] text-[#fffaf2]",
+    containerBg: "var(--toast-info-bg)",
+    iconBg: "var(--toast-info-icon-bg)",
+    icon: "text-[var(--toast-info-icon)]",
+    closeBg: "var(--toast-info-close-bg)",
+    close: "text-[var(--toast-info-icon)]",
+  },
+  success: {
+    containerBg: "var(--toast-success-bg)",
+    iconBg: "var(--toast-success-icon-bg)",
+    icon: "text-[var(--toast-success-icon)]",
+    closeBg: "var(--toast-success-close-bg)",
+    close: "text-[var(--text-muted)]",
+  },
+  warning: {
+    containerBg: "var(--toast-warning-bg)",
+    iconBg: "var(--toast-warning-icon-bg)",
+    icon: "text-[var(--toast-warning-icon)]",
+    closeBg: "var(--toast-warning-close-bg)",
+    close: "text-[var(--text-muted)]",
+  },
+  error: {
+    containerBg: "var(--toast-error-bg)",
+    iconBg: "var(--toast-error-icon-bg)",
+    icon: "text-[var(--toast-error-icon)]",
+    closeBg: "var(--toast-error-close-bg)",
+    close: "text-[var(--text-muted)]",
   },
 };
 
@@ -87,7 +120,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       const id = getToastId();
       setToasts((prev) => [
         ...prev,
-        { id, variant: toast.variant ?? "info", ...toast },
+        { id, variant: toast.variant ?? "neutral", ...toast },
       ]);
       const duration = toast.duration ?? 4000;
       const timeout = window.setTimeout(() => startClose(id), duration);
@@ -97,11 +130,13 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   );
 
   useEffect(() => {
+    const timeoutsRef = timeouts.current;
+    const closingTimeoutsRef = closingTimeouts.current;
     return () => {
-      timeouts.current.forEach((timeout) => window.clearTimeout(timeout));
-      timeouts.current.clear();
-      closingTimeouts.current.forEach((timeout) => window.clearTimeout(timeout));
-      closingTimeouts.current.clear();
+      timeoutsRef.forEach((timeout) => window.clearTimeout(timeout));
+      timeoutsRef.clear();
+      closingTimeoutsRef.forEach((timeout) => window.clearTimeout(timeout));
+      closingTimeoutsRef.clear();
     };
   }, []);
 
@@ -112,28 +147,42 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       {children}
       <div className="pointer-events-none fixed right-4 top-[72px] z-50 flex w-[360px] max-w-[90vw] flex-col gap-3 sm:top-4 md:right-6 md:top-6">
         {toasts.map((toast) => {
-          const styles = variantStyles[toast.variant ?? "info"];
+          const variant = toast.variant ?? "neutral";
+          const styles = variantStyles[variant];
           return (
             <div
               key={toast.id}
-              className={`pointer-events-auto flex items-start gap-3 rounded-lg border px-4 py-3 shadow-[0_20px_50px_-35px_rgba(31,91,75,0.6)] ${
+              className={`pointer-events-auto flex items-start gap-3 rounded-2xl px-4 py-3 shadow-[var(--shadow-accent-toast)] ${
                 toast.closing ? "toast-exit" : "toast-enter"
-              } ${styles.container}`}
+              }`}
+              style={{ backgroundColor: styles.containerBg }}
               role="status"
             >
               <span
-                className={`mt-0.5 inline-flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-semibold uppercase ${styles.badge}`}
+                className="mt-0.5 inline-flex h-10 w-10 items-center justify-center rounded-xl"
+                style={{ backgroundColor: styles.iconBg }}
               >
-                {toast.variant === "success"
-                  ? "OK"
-                  : toast.variant === "error"
-                  ? "ER"
-                  : "IN"}
+                {variant === "success" ? (
+                  <Check className={`h-5 w-5 ${styles.icon}`} aria-hidden="true" />
+                ) : variant === "warning" ? (
+                  <AlertTriangle
+                    className={`h-5 w-5 ${styles.icon}`}
+                    aria-hidden="true"
+                  />
+                ) : variant === "error" ? (
+                  <X className={`h-5 w-5 ${styles.icon}`} aria-hidden="true" />
+                ) : variant === "info" ? (
+                  <BellOff className={`h-5 w-5 ${styles.icon}`} aria-hidden="true" />
+                ) : (
+                  <Info className={`h-5 w-5 ${styles.icon}`} aria-hidden="true" />
+                )}
               </span>
               <div className="flex-1">
-                <p className="text-sm font-semibold">{toast.title}</p>
+                <p className="text-sm font-semibold text-[var(--text-strong)]">
+                  {toast.title}
+                </p>
                 {toast.description ? (
-                  <p className="mt-1 text-xs text-[#5f574a]">
+                  <p className="mt-1 text-xs text-[var(--text-muted)]">
                     {toast.description}
                   </p>
                 ) : null}
@@ -141,19 +190,11 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               <button
                 type="button"
                 aria-label="Fechar notificação"
-                className="text-[#6b6357]"
+                className={`inline-flex h-8 w-8 items-center justify-center rounded-xl ${styles.close}`}
+                style={{ backgroundColor: styles.closeBg }}
                 onClick={() => startClose(toast.id)}
               >
-                <svg
-                  aria-hidden="true"
-                  className="h-4 w-4"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                >
-                  <path d="M6 6l12 12M18 6l-12 12" strokeLinecap="round" />
-                </svg>
+                <X className="h-4 w-4" aria-hidden="true" />
               </button>
             </div>
           );

@@ -4,10 +4,15 @@ import { createClient } from "@/lib/supabase/server";
 type ReviewRow = {
   id: string;
   due_at: string;
+  status: "pendente" | "concluida" | "adiada";
+  completed_at: string | null;
+  review_duration_seconds: number | null;
   study?: {
     topic?: string | null;
     studied_at?: string | null;
     notes?: string | null;
+    questions_total?: number | null;
+    questions_correct?: number | null;
     subject?: { name?: string | null } | null;
   } | null;
 };
@@ -39,9 +44,8 @@ export default async function Home() {
   const { data: reviewsData } = await supabase
     .from("reviews")
     .select(
-      "id,due_at,study:studies(topic,studied_at,notes,subject:subjects(name))"
+      "id,due_at,status,completed_at,review_duration_seconds,study:studies(topic,studied_at,notes,questions_total,questions_correct,subject:subjects(name))"
     )
-    .eq("status", "pendente")
     .eq("user_id", user?.id ?? "")
     .order("due_at", { ascending: true });
 
@@ -54,9 +58,14 @@ export default async function Home() {
       studiedAt: review.study?.studied_at
         ? toDateKey(new Date(review.study.studied_at))
         : toDateKey(new Date()),
+      completedAt: review.completed_at,
+      reviewDurationSeconds: review.review_duration_seconds ?? null,
+      questionsTotal: review.study?.questions_total ?? null,
+      questionsCorrect: review.study?.questions_correct ?? null,
       dueAt: review.due_at
         ? toDateKey(new Date(review.due_at))
         : toDateKey(new Date()),
+      status: review.status ?? "pendente",
     })) ?? [];
 
   return (

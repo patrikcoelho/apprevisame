@@ -1,8 +1,20 @@
 "use client";
 
+import Image from "next/image";
+import logoRevisame from "@/public/images/logo-revisame.svg";
+import logoRevisameDark from "@/public/images/logo-revisame-dark.svg";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import {
+  BarChart3,
+  CalendarCheck,
+  Home,
+  Menu,
+  Settings,
+  SquarePlus,
+  X,
+} from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import ReviewTimerBar from "@/app/components/review-timer-bar";
 
@@ -14,11 +26,15 @@ export default function DashboardLayout({
   const pathname = usePathname();
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [menuState, setMenuState] = useState(() => ({
+    open: false,
+    pathname,
+  }));
   const [profileName, setProfileName] = useState("—");
   const [profileEmail, setProfileEmail] = useState("—");
   const [timerOffset, setTimerOffset] = useState(0);
   const [isDesktop, setIsDesktop] = useState(false);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
 
   const isActive = (href: string) =>
     href === "/" ? pathname === "/" : pathname.startsWith(href);
@@ -27,95 +43,41 @@ export default function DashboardLayout({
     {
       label: "Inicio",
       href: "/",
-      icon: (
-        <svg
-          aria-hidden="true"
-          className="h-4 w-4 text-[#6b6357]"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.7"
-        >
-          <path d="M3 11l9-7 9 7" strokeLinecap="round" />
-          <path d="M5 10v9h14v-9" strokeLinecap="round" />
-        </svg>
-      ),
+      icon: <Home className="h-5 w-5 text-[var(--text-muted)]" aria-hidden="true" />,
     },
     {
       label: "Revisões",
       href: "/revisoes",
       icon: (
-        <svg
-          aria-hidden="true"
-          className="h-4 w-4 text-[#6b6357]"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.7"
-        >
-          <rect x="4" y="5" width="16" height="14" rx="2" />
-          <path d="M8 3v4M16 3v4M7 11h4M7 15h8" strokeLinecap="round" />
-        </svg>
+        <CalendarCheck className="h-5 w-5 text-[var(--text-muted)]" aria-hidden="true" />
       ),
     },
     {
       label: "Adicionar",
       href: "/adicionar",
       icon: (
-        <svg
-          aria-hidden="true"
-          className="h-4 w-4 text-[#6b6357]"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.7"
-        >
-          <rect x="4" y="4" width="16" height="16" rx="2" />
-          <path d="M12 8v8M8 12h8" strokeLinecap="round" />
-        </svg>
+        <SquarePlus className="h-5 w-5 text-[var(--text-muted)]" aria-hidden="true" />
       ),
     },
     {
       label: "Relatórios",
       href: "/relatorios",
       icon: (
-        <svg
-          aria-hidden="true"
-          className="h-4 w-4 text-[#6b6357]"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.7"
-        >
-          <path d="M4 19V5" strokeLinecap="round" />
-          <path d="M8 19V10" strokeLinecap="round" />
-          <path d="M12 19V7" strokeLinecap="round" />
-          <path d="M16 19v-5" strokeLinecap="round" />
-          <path d="M20 19v-9" strokeLinecap="round" />
-        </svg>
+        <BarChart3 className="h-5 w-5 text-[var(--text-muted)]" aria-hidden="true" />
       ),
     },
     {
       label: "Configurações",
       href: "/configuracoes",
       icon: (
-        <svg
-          aria-hidden="true"
-          className="h-4 w-4 text-[#6b6357]"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.7"
-        >
-          <path d="M4 7h10M4 17h16M14 7h6M4 12h16" strokeLinecap="round" />
-          <circle cx="14" cy="7" r="2" />
-          <circle cx="8" cy="12" r="2" />
-          <circle cx="18" cy="17" r="2" />
-        </svg>
+        <Settings className="h-5 w-5 text-[var(--text-muted)]" aria-hidden="true" />
       ),
     },
   ];
   const homeHref = navItems[0]?.href ?? "/";
+  const isMenuOpen = menuState.open && menuState.pathname === pathname;
+  const openMenu = () => setMenuState({ open: true, pathname });
+  const closeMenu = () => setMenuState({ open: false, pathname });
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -184,53 +146,54 @@ export default function DashboardLayout({
       window.removeEventListener("revisame:review-timer-offset", handleOffset);
   }, []);
 
-  useEffect(() => {
-    setIsMenuOpen(false);
-  }, [pathname]);
-
   const handleLogout = async () => {
     await supabase.auth.signOut();
     router.push("/login");
   };
 
+  const handleLogoutConfirm = async () => {
+    await handleLogout();
+    setShowLogoutModal(false);
+  };
+
   return (
-    <div className="min-h-screen bg-[#f6f1ea] text-[#1d1b16]">
-      <div className="pointer-events-none fixed left-[-20rem] top-[-14rem] h-[28rem] w-[28rem] rounded-full bg-[radial-gradient(circle_at_center,rgba(217,91,67,0.25),rgba(246,241,234,0))] blur-3xl" />
-      <div className="pointer-events-none fixed right-[-18rem] top-24 h-[30rem] w-[30rem] rounded-full bg-[radial-gradient(circle_at_center,rgba(246,241,234,0),rgba(246,241,234,0))] blur-3xl" />
+    <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
+      <div className="pointer-events-none fixed left-[-20rem] top-[-14rem] h-[28rem] w-[28rem] rounded-full bg-[var(--gradient-warm-glow)] blur-3xl" />
+      <div className="pointer-events-none fixed right-[-18rem] top-24 h-[30rem] w-[30rem] rounded-full bg-[var(--gradient-neutral-glow)] blur-3xl" />
 
       <div className="flex min-h-screen w-full">
-        <header className="fixed left-0 top-0 z-40 flex w-full items-center justify-between border-b border-[#e6dbc9] bg-[#fffaf2]/95 px-4 py-3 backdrop-blur lg:hidden">
+        <header className="fixed left-0 top-0 z-40 flex w-full items-center justify-between border-b border-[var(--border)] bg-[var(--surface-bar)] px-4 py-3 backdrop-blur lg:hidden">
           <Link href={homeHref} className="flex items-center gap-3">
-            <img
-              src="/images/logo-revisame.png"
+            <Image
+              src={logoRevisame}
               alt="Revisame"
-              className="h-9 w-9"
+              width={36}
+              height={36}
+              className="logo-variant--light h-9 w-9"
+            />
+            <Image
+              src={logoRevisameDark}
+              alt="Revisame"
+              width={36}
+              height={36}
+              className="logo-variant--dark h-9 w-9"
             />
             <div className="text-left">
-            <p className="text-[10px] uppercase tracking-[0.3em] text-[#6b6357]">
-              Revisame
-            </p>
-            <p className="text-base font-semibold text-[#1f1c18]">
-              Painel do aluno
-            </p>
+              <p className="text-[10px] uppercase tracking-[0.3em] text-[var(--text-muted)]">
+                Revisame
+              </p>
+              <p className="text-base font-semibold text-[var(--text-strong)]">
+                Painel do aluno
+              </p>
             </div>
           </Link>
           <button
             type="button"
-            className="flex h-11 w-11 items-center justify-center text-[#1f5b4b]"
+            className="flex h-11 w-11 items-center justify-center text-[var(--accent)]"
             aria-label="Abrir menu"
-            onClick={() => setIsMenuOpen(true)}
+            onClick={openMenu}
           >
-            <svg
-              aria-hidden="true"
-              className="h-8 w-8"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.8"
-            >
-              <path d="M4 6h16M4 12h16M4 18h16" strokeLinecap="round" />
-            </svg>
+            <Menu className="h-8 w-8" aria-hidden="true" />
           </button>
         </header>
 
@@ -245,64 +208,61 @@ export default function DashboardLayout({
             className={`absolute inset-0 bg-black/65 transition-opacity ${
               isMenuOpen ? "opacity-100" : "opacity-0"
             }`}
-            onClick={() => setIsMenuOpen(false)}
+            onClick={closeMenu}
             aria-hidden="true"
           />
           <aside
-            className={`absolute right-0 top-0 flex h-full w-[82%] max-w-xs flex-col justify-between border-l border-[#e6dbc9] bg-[#fffaf2] p-5 transition-transform ${
+            className={`absolute right-0 top-0 flex h-full w-[82%] max-w-xs flex-col justify-between border-l border-[var(--border)] bg-[var(--surface)] p-5 transition-transform ${
               isMenuOpen ? "translate-x-0" : "translate-x-full"
             }`}
           >
             <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <img
-                    src="/images/logo-revisame.png"
+                  <Image
+                    src={logoRevisame}
                     alt="Revisame"
-                    className="h-10 w-10"
+                    width={40}
+                    height={40}
+                    className="logo-variant--light h-10 w-10"
+                  />
+                  <Image
+                    src={logoRevisameDark}
+                    alt="Revisame"
+                    width={40}
+                    height={40}
+                    className="logo-variant--dark h-10 w-10"
                   />
                   <div>
-                    <p className="text-[10px] uppercase tracking-[0.3em] text-[#6b6357]">
+                    <p className="text-[10px] uppercase tracking-[0.3em] text-[var(--text-muted)]">
                       Revisame
                     </p>
-                    <p className="text-base font-semibold text-[#1f1c18]">
+                    <p className="text-base font-semibold text-[var(--text-strong)]">
                       Painel do aluno
                     </p>
                   </div>
                 </div>
                 <button
                   type="button"
-                  className="flex h-10 w-10 items-center justify-center rounded-md border border-[#e2d6c4] text-[#6b6357]"
+                  className="flex h-10 w-10 items-center justify-center rounded-md border border-[var(--border)] text-[var(--text-muted)]"
                   aria-label="Fechar menu"
-                  onClick={() => setIsMenuOpen(false)}
+                  onClick={closeMenu}
                 >
-                  <svg
-                    aria-hidden="true"
-                    className="h-4 w-4"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                  >
-                    <path
-                      d="M6 6l12 12M18 6l-12 12"
-                      strokeLinecap="round"
-                    />
-                  </svg>
+                  <X className="h-4 w-4" aria-hidden="true" />
                 </button>
               </div>
-              <nav className="space-y-1 text-sm font-medium text-[#6b6357]">
+              <nav className="space-y-1 text-sm font-medium text-[var(--text-muted)]">
                 {navItems.map((item) => (
                   <Link
                     key={item.label}
                     href={item.href}
-                    onClick={() => setIsMenuOpen(false)}
+                    onClick={closeMenu}
                     aria-current={isActive(item.href) ? "page" : undefined}
-                    className={`flex items-center justify-between rounded-md px-3 py-3 transition ${
-                      isActive(item.href)
-                        ? "bg-[#f0e6d9] text-[#1f3f35] pointer-events-none"
-                        : "hover:bg-[#f6efe4]"
-                    }`}
+                  className={`nav-vertical-item flex w-full items-center justify-between rounded-md px-3 py-3 transition ${
+                    isActive(item.href)
+                      ? "bg-[var(--nav-active-bg)] text-[var(--nav-active-text)] font-semibold [&_svg]:text-[var(--nav-active-text)] pointer-events-none"
+                      : "hover:bg-[var(--nav-hover-bg)]"
+                  }`}
                   >
                     <span className="flex items-center gap-3">
                       {item.icon}
@@ -312,14 +272,14 @@ export default function DashboardLayout({
                 ))}
               </nav>
             </div>
-            <div className="rounded-md border border-[#e6dbc9] bg-[#fdf8f1] p-4 text-sm text-[#4b4337]">
-              <p className="font-semibold text-[#1f1c18]">{profileName}</p>
-              <p className="text-xs text-[#6b6357]">{profileEmail}</p>
+            <div className="rounded-md border border-[var(--border)] bg-[var(--surface-subtle)] p-4 text-sm text-[var(--text-medium)]">
+              <p className="font-semibold text-[var(--text-strong)]">{profileName}</p>
+              <p className="text-xs text-[var(--text-muted)]">{profileEmail}</p>
               <div className="mt-4">
                 <button
                   type="button"
-                  className="min-h-[36px] w-full rounded-md border border-[#e2d6c4] bg-white px-3 py-2 text-xs font-semibold text-[#6b6357]"
-                  onClick={handleLogout}
+                  className="logout-button min-h-[36px] w-full rounded-md border border-[var(--border)] bg-[var(--surface-white)] px-3 py-2 text-xs font-semibold text-[var(--text-muted)]"
+                  onClick={() => setShowLogoutModal(true)}
                 >
                   Sair da conta
                 </button>
@@ -328,35 +288,44 @@ export default function DashboardLayout({
           </aside>
         </div>
 
-        <aside className="fixed left-0 top-0 hidden h-screen w-64 flex-col justify-between border-r border-[#e6dbc9] bg-[#fffaf2] p-6 lg:flex">
+        <aside className="fixed left-0 top-0 hidden h-screen w-64 flex-col justify-between border-r border-[var(--border)] bg-[var(--surface)] p-6 lg:flex">
           <div className="space-y-8">
             <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-md bg-white">
-                <img
-                  src="/images/logo-revisame.png"
+              <div className="flex h-12 w-12 items-center justify-center rounded-md">
+                <Image
+                  src={logoRevisame}
                   alt="Revisame"
-                  className="h-10 w-10"
+                  width={40}
+                  height={40}
+                  className="logo-variant--light h-10 w-10"
+                />
+                <Image
+                  src={logoRevisameDark}
+                  alt="Revisame"
+                  width={40}
+                  height={40}
+                  className="logo-variant--dark h-10 w-10"
                 />
               </div>
               <div>
-                <p className="text-xs uppercase tracking-[0.3em] text-[#6b6357]">
+                <p className="text-xs uppercase tracking-[0.3em] text-[var(--text-muted)]">
                   Revisame
                 </p>
-                <p className="text-lg font-semibold text-[#1f1c18]">
+                <p className="text-lg font-semibold text-[var(--text-strong)]">
                   Painel do aluno
                 </p>
               </div>
             </div>
-            <nav className="space-y-1 text-sm font-medium text-[#6b6357]">
+            <nav className="space-y-1 text-sm font-medium text-[var(--text-muted)]">
               {navItems.map((item) => (
                 <Link
                   key={item.label}
                   href={item.href}
                   aria-current={isActive(item.href) ? "page" : undefined}
-                  className={`flex items-center justify-between rounded-md px-3 py-2 transition ${
+                  className={`nav-vertical-item flex items-center justify-between rounded-md px-3 py-2 transition ${
                     isActive(item.href)
-                      ? "bg-[#f0e6d9] text-[#1f3f35] pointer-events-none"
-                      : "hover:bg-[#f6efe4]"
+                      ? "bg-[var(--nav-active-bg)] text-[var(--nav-active-text)] font-semibold [&_svg]:text-[var(--nav-active-text)] pointer-events-none"
+                      : "hover:bg-[var(--nav-hover-bg)]"
                   }`}
                 >
                   <span className="flex items-center gap-3">
@@ -368,18 +337,18 @@ export default function DashboardLayout({
             </nav>
           </div>
           <div
-            className="rounded-md border border-[#e6dbc9] bg-[#fdf8f1] p-4 text-sm text-[#4b4337]"
+            className="rounded-md border border-[var(--border)] bg-[var(--surface-subtle)] p-4 text-sm text-[var(--text-medium)]"
             style={{
               marginBottom: timerOffset ? `calc(${timerOffset}px - 44px)` : 0,
             }}
           >
-            <p className="font-semibold text-[#1f1c18]">{profileName}</p>
-            <p className="text-xs text-[#6b6357]">{profileEmail}</p>
+            <p className="font-semibold text-[var(--text-strong)]">{profileName}</p>
+            <p className="text-xs text-[var(--text-muted)]">{profileEmail}</p>
             <div className="mt-4 flex items-center justify-between">
               <button
                 type="button"
-                className="min-h-[36px] w-full rounded-md border border-[#e2d6c4] bg-white px-3 py-2 text-xs font-semibold text-[#6b6357]"
-                onClick={handleLogout}
+                className="logout-button min-h-[36px] w-full rounded-md border border-[var(--border)] bg-[var(--surface-white)] px-3 py-2 text-xs font-semibold text-[var(--text-muted)]"
+                onClick={() => setShowLogoutModal(true)}
               >
                 Sair da conta
               </button>
@@ -397,17 +366,17 @@ export default function DashboardLayout({
         </main>
       </div>
 
-      <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-[#e6dbc9] bg-[#fffaf2]/95 backdrop-blur lg:hidden">
-        <div className="grid grid-cols-5 gap-1 px-3 py-2">
+      <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-[var(--border)] bg-[var(--surface-bar)] backdrop-blur lg:hidden">
+        <div className="flex items-stretch gap-2 px-3 py-2">
           {navItems.map((item) => (
             <Link
               key={item.label}
               href={item.href}
               aria-current={isActive(item.href) ? "page" : undefined}
-              className={`min-h-[52px] flex flex-col items-center justify-center gap-1 rounded-md px-2 py-2 text-[11px] font-semibold ${
+              className={`mobile-nav-item flex min-h-[52px] min-w-0 basis-0 flex-1 flex-col items-center justify-center gap-1 rounded-md px-2 py-2 text-[11px] font-semibold ${
                 isActive(item.href)
-                  ? "bg-[#1f3f35] text-white shadow-[0_8px_20px_-18px_rgba(31,91,75,0.6)] [&_svg]:text-white pointer-events-none"
-                  : "text-[#6b6357]"
+                  ? "bg-[var(--nav-active-bg)] text-[var(--nav-active-text)] text-xs font-semibold [&_svg]:text-[var(--nav-active-text)] pointer-events-none"
+                  : "text-[var(--text-muted)]"
               }`}
             >
               {item.icon}
@@ -416,6 +385,33 @@ export default function DashboardLayout({
           ))}
         </div>
       </nav>
+
+      {showLogoutModal ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center modal-overlay p-4">
+          <div className="w-full max-w-md rounded-lg bg-[var(--surface)] p-5 modal-shadow sm:p-6 max-h-[85vh] overflow-y-auto">
+            <h3 className="text-lg font-semibold text-[var(--text-strong)]">
+              Sair da conta
+            </h3>
+            <p className="mt-2 text-sm text-[var(--text-muted)]">
+              Tem certeza que deseja sair da sua conta agora?
+            </p>
+            <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-end">
+              <button
+                className="rounded-md border border-[var(--border-neutral)] bg-[var(--surface-neutral)] px-4 py-2 text-sm font-semibold min-h-[44px] text-[var(--text-muted)]"
+                onClick={() => setShowLogoutModal(false)}
+              >
+                Cancelar
+              </button>
+              <button
+                className="rounded-md bg-[var(--accent-bg)] px-4 py-2 text-sm font-semibold min-h-[44px] text-[var(--text-on-accent)]"
+                onClick={handleLogoutConfirm}
+              >
+                Sair agora
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

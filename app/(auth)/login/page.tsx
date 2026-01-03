@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -10,13 +10,19 @@ export default function LoginPage() {
   const router = useRouter();
   const supabase = createClient();
   const { addToast } = useToast();
+  const [rememberMe, setRememberMe] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
   const [message, setMessage] = useState("");
-  const [resetStatus, setResetStatus] = useState<"idle" | "loading" | "sent">(
-    "idle"
-  );
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const stored = window.localStorage.getItem("revisame:remember-me");
+    if (stored === "false") {
+      setRememberMe(false);
+    }
+  }, []);
 
   const handleLogin = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -40,6 +46,13 @@ export default function LoginPage() {
     }
 
     setStatus("idle");
+    if (rememberMe) {
+      window.localStorage.setItem("revisame:remember-me", "true");
+      window.sessionStorage.removeItem("revisame:session-active");
+    } else {
+      window.localStorage.setItem("revisame:remember-me", "false");
+      window.sessionStorage.setItem("revisame:session-active", "true");
+    }
     addToast({
       variant: "success",
       title: "Login realizado.",
@@ -49,101 +62,66 @@ export default function LoginPage() {
     router.refresh();
   };
 
-  const handleResetPassword = async () => {
-    if (!email) {
-      setMessage("Informe seu e-mail para recuperar a senha.");
-      setStatus("error");
-      addToast({
-        variant: "error",
-        title: "Informe seu e-mail.",
-        description: "Precisamos do e-mail para enviar o link.",
-      });
-      return;
-    }
-
-    setResetStatus("loading");
-    setMessage("");
-
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/auth/callback?next=/recuperar-senha`,
-    });
-
-    if (error) {
-      setStatus("error");
-      setMessage("Não foi possível enviar o link de recuperação.");
-      setResetStatus("idle");
-      addToast({
-        variant: "error",
-        title: "Não foi possível enviar o link.",
-        description: "Tente novamente em instantes.",
-      });
-      return;
-    }
-
-    setResetStatus("sent");
-    setStatus("idle");
-    setMessage("Enviamos um link de recuperação para o seu e-mail.");
-    addToast({
-      variant: "success",
-      title: "Link de recuperação enviado.",
-      description: "Confira sua caixa de entrada.",
-    });
+  const handleResetPassword = () => {
+    router.push("/recuperar-senha");
   };
 
   return (
     <div className="space-y-6">
       <div>
-        <p className="text-xs font-semibold uppercase tracking-[0.35em] text-[#6b6357]">
+        <p className="text-xs font-semibold uppercase tracking-[0.35em] text-[var(--text-muted)]">
           Login
         </p>
-        <h2 className="mt-2 text-2xl font-semibold text-[#1f1c18]">
+        <h2 className="mt-2 text-2xl font-semibold text-[var(--text-strong)]">
           Acesse sua conta.
         </h2>
-        <p className="mt-2 text-sm text-[#5f574a]">
+        <p className="mt-2 text-sm text-[var(--text-muted)]">
           Entre com seu e-mail e senha para continuar seus estudos.
         </p>
       </div>
 
       <form className="space-y-4" onSubmit={handleLogin}>
         <div>
-          <label className="text-xs font-semibold text-[#6b6357]">E-mail</label>
+          <label className="text-xs font-semibold text-[var(--text-muted)]">E-mail</label>
           <input
             type="email"
             placeholder="voce@email.com"
             value={email}
             onChange={(event) => setEmail(event.target.value)}
-            className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-base text-[#1f1c18]"
+            className="mt-2 h-11 w-full rounded-md border border-[var(--border-soft)] bg-[var(--surface-white)] px-3 text-base text-[var(--text-strong)]"
           />
         </div>
         <div>
-          <label className="text-xs font-semibold text-[#6b6357]">Senha</label>
+          <label className="text-xs font-semibold text-[var(--text-muted)]">Senha</label>
           <input
             type="password"
             placeholder="Digite sua senha"
             value={password}
             onChange={(event) => setPassword(event.target.value)}
-            className="mt-2 h-11 w-full rounded-md border border-[#efe2d1] bg-white px-3 text-base text-[#1f1c18]"
+            className="mt-2 h-11 w-full rounded-md border border-[var(--border-soft)] bg-[var(--surface-white)] px-3 text-base text-[var(--text-strong)]"
           />
-          <div className="mt-2 flex items-center justify-between text-xs text-[#6b6357]">
+          <div className="mt-3 flex items-center justify-between text-xs text-[var(--text-muted)]">
             <label className="flex items-center gap-2">
-              <input type="checkbox" className="h-4 w-4" />
+              <input
+                type="checkbox"
+                className="h-4 w-4"
+                checked={rememberMe}
+                onChange={(event) => setRememberMe(event.target.checked)}
+              />
               Manter conectado
             </label>
             <button
               type="button"
               onClick={handleResetPassword}
-              className="font-semibold text-[#1f5b4b]"
-              disabled={resetStatus === "loading"}
+              className="font-semibold text-[var(--accent)]"
             >
-              {resetStatus === "loading"
-                ? "Enviando..."
-                : "Esqueci minha senha"}
+              Esqueci minha senha
             </button>
           </div>
         </div>
 
         <button
-          className="min-h-[48px] w-full rounded-md bg-[#1f5b4b] px-4 py-3 text-base font-semibold text-[#fffaf2] shadow-[0_12px_30px_-20px_rgba(31,91,75,0.6)] disabled:cursor-not-allowed disabled:bg-[#9fbfb5]"
+          className="min-h-[48px] w-full rounded-md bg-[var(--accent-bg)] px-4 py-3 text-base font-semibold text-[var(--text-on-accent)] shadow-[var(--shadow-accent)] disabled:cursor-not-allowed disabled:bg-[var(--accent-disabled)]"
           type="submit"
           disabled={status === "loading" || !email || !password}
         >
@@ -151,21 +129,33 @@ export default function LoginPage() {
         </button>
       </form>
 
+      <div className="space-y-4">
+        <div className="flex items-center gap-3 text-xs text-[var(--text-muted)]">
+          <span className="h-px flex-1 bg-[var(--border)]" />
+          ou
+          <span className="h-px flex-1 bg-[var(--border)]" />
+        </div>
+        <button
+          type="button"
+          aria-disabled="true"
+          className="flex min-h-[48px] w-full items-center justify-center gap-3 rounded-md border border-[var(--border)] bg-[var(--surface-white)] px-4 text-sm font-semibold text-[var(--text-strong)]"
+        >
+          <span className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface)] text-sm font-bold text-[var(--text-strong)]">
+            G
+          </span>
+          Entrar com Google
+        </button>
+      </div>
+
       {status === "error" ? (
-        <div className="rounded-md border border-[#f0c6b9] bg-[#fbe7df] px-4 py-3 text-xs text-[#9d4b3b]">
+        <div className="rounded-md border border-[var(--border-warm)] bg-[var(--surface-warm)] px-4 py-3 text-xs text-[var(--accent-warm)]">
           {message}
         </div>
       ) : null}
 
-      {resetStatus === "sent" && status !== "error" ? (
-        <div className="rounded-md border border-[#d8eadf] bg-[#e9f4ef] px-4 py-3 text-xs text-[#2f5d4e]">
-          {message}
-        </div>
-      ) : null}
-
-      <div className="rounded-md border border-[#efe2d1] bg-[#fdf8f1] px-4 py-3 text-xs text-[#6b6357]">
+      <div className="rounded-md border border-[var(--border-soft)] bg-[var(--surface-subtle)] px-4 py-3 text-xs text-[var(--text-muted)]">
         Ainda não tem conta?{" "}
-        <Link href="/cadastro" className="font-semibold text-[#1f5b4b]">
+        <Link href="/cadastro" className="font-semibold text-[var(--accent)]">
           Criar conta
         </Link>
       </div>
